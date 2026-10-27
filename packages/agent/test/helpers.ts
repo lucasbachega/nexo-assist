@@ -17,12 +17,13 @@ type ScriptStep = { calls?: Call[]; text?: string };
  * ferramenta (ou o texto) definidas no roteiro. Permite testar o agent de ponta
  * a ponta (Mastra + ferramentas + serviço de chamados) sem chamar um LLM.
  */
-export function scriptedModel(script: ScriptStep[]) {
+export function scriptedModel(script: ScriptStep[], onCall?: () => void) {
   let n = 0;
   const usage = { inputTokens: 100, outputTokens: 20, totalTokens: 120 };
   return new MastraLanguageModelV2Mock({
     modelId: 'roteiro-de-teste',
     doStream: async () => {
+      onCall?.();
       const step = script[n] ?? { text: 'ok' };
       n += 1;
       const parts: unknown[] = [{ type: 'stream-start', warnings: [] }];
