@@ -20,7 +20,12 @@ describe('turno do agent (Mastra + ferramentas + serviço de chamados)', () => {
       history: [],
       userMessage: 'Só eu. Tenho reunião com um cliente às 14h e preciso da VPN funcionando.',
       model: scriptedModel([
-        { calls: [{ tool: 'buscar_central_ajuda', args: { consulta: 'VPN erro 809' } }, { tool: 'listar_meus_chamados', args: { mostrar_ao_funcionario: false } }] },
+        {
+          calls: [
+            { tool: 'buscar_central_ajuda', args: { consulta: 'VPN erro 809' } },
+            { tool: 'listar_meus_chamados', args: { mostrar_ao_funcionario: false } },
+          ],
+        },
         {
           calls: [
             {
@@ -29,7 +34,8 @@ describe('turno do agent (Mastra + ferramentas + serviço de chamados)', () => {
                 tipo: 'INC',
                 categoria: 'Rede e VPN',
                 titulo: 'VPN não conecta no notebook — erro 809',
-                descricao: 'Desde ontem o notebook (Windows 11) não conecta na VPN e mostra o erro 809. Precisa dela para a reunião das 14h.',
+                descricao:
+                  'Desde ontem o notebook (Windows 11) não conecta na VPN e mostra o erro 809. Precisa dela para a reunião das 14h.',
                 fatos_prioridade: { affected: 'somente_voce', workStopped: true, hasWorkaround: false, sameDayCommitment: true },
               },
             },
@@ -130,7 +136,21 @@ describe('turno do agent (Mastra + ferramentas + serviço de chamados)', () => {
 
   it('confirmação por texto só executa com uma confirmação clara', async () => {
     const w = createWorld('emp-ana', 'hmm, não sei');
-    await w.ports.drafts.create({ kind: 'criar', ticketId: null, type: 'INC', title: 'Teams sem áudio', description: 'Ninguém me escuta no Teams desde hoje.', category: 'Software', priority: 'media', priorityRule: '', priorityFacts: null, affected: 'somente_voce', slaDeadline: null, slaLabel: '', comment: null });
+    await w.ports.drafts.create({
+      kind: 'criar',
+      ticketId: null,
+      type: 'INC',
+      title: 'Teams sem áudio',
+      description: 'Ninguém me escuta no Teams desde hoje.',
+      category: 'Software',
+      priority: 'media',
+      priorityRule: '',
+      priorityFacts: null,
+      affected: 'somente_voce',
+      slaDeadline: null,
+      slaLabel: '',
+      comment: null,
+    });
     await runTurn({
       ports: w.ports,
       history: [],
@@ -149,8 +169,28 @@ describe('histórico para o modelo', () => {
   it('resume os cartões e começa pelo usuário', () => {
     const msgs = toModelMessages(
       [
-        { id: '1', seq: 1, conversationId: 'c', role: 'system', authorName: null, text: 'Chamado INC-1 criado', blocks: [], trace: null, createdAt: '' },
-        { id: '2', seq: 2, conversationId: 'c', role: 'analyst', authorName: 'Rafael Lima', text: 'Oi!', blocks: [], trace: null, createdAt: '' },
+        {
+          id: '1',
+          seq: 1,
+          conversationId: 'c',
+          role: 'system',
+          authorName: null,
+          text: 'Chamado INC-1 criado',
+          blocks: [],
+          trace: null,
+          createdAt: '',
+        },
+        {
+          id: '2',
+          seq: 2,
+          conversationId: 'c',
+          role: 'analyst',
+          authorName: 'Rafael Lima',
+          text: 'Oi!',
+          blocks: [],
+          trace: null,
+          createdAt: '',
+        },
       ],
       'obrigada',
     );

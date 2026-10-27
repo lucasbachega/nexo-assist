@@ -31,7 +31,11 @@ export function scriptedModel(script: ScriptStep[], onCall?: () => void) {
         parts.push({ type: 'tool-call', toolCallId: `call-${n}-${i}`, toolName: c.tool, input: JSON.stringify(c.args) });
       }
       if (step.text) {
-        parts.push({ type: 'text-start', id: `t${n}` }, { type: 'text-delta', id: `t${n}`, delta: step.text }, { type: 'text-end', id: `t${n}` });
+        parts.push(
+          { type: 'text-start', id: `t${n}` },
+          { type: 'text-delta', id: `t${n}`, delta: step.text },
+          { type: 'text-end', id: `t${n}` },
+        );
       }
       parts.push({ type: 'finish', finishReason: step.calls?.length ? 'tool-calls' : 'stop', usage });
       return { stream: simulateReadableStream({ chunks: parts as never[] }) };
@@ -46,7 +50,13 @@ export function createWorld(employeeId = 'emp-ana', lastUserMessage = '') {
   const app = createApp({ repo, serviceToken: 't' });
   const fetchImpl = ((i: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(i, init))) as typeof fetch;
   const employee = EMPLOYEES.find((e) => e.id === employeeId)!;
-  const tickets = new TicketsClient({ baseUrl: 'http://t', token: 't', actor: { id: employee.id, role: 'funcionario', name: employee.name }, fetchImpl, baseDelayMs: 1 });
+  const tickets = new TicketsClient({
+    baseUrl: 'http://t',
+    token: 't',
+    actor: { id: employee.id, role: 'funcionario', name: employee.name },
+    fetchImpl,
+    baseDelayMs: 1,
+  });
 
   const drafts: DraftView[] = [];
   const handoffs: HandoffRequest[] = [];
@@ -65,7 +75,17 @@ export function createWorld(employeeId = 'emp-ana', lastUserMessage = '') {
       },
       confirm: async (id: string) => {
         const d = drafts.find((x) => x.id === id)!;
-        const t: Ticket = await tickets.createTicket({ type: d.payload.type, title: d.payload.title, description: d.payload.description, category: d.payload.category, priority: d.payload.priority, affected: d.payload.affected }, id);
+        const t: Ticket = await tickets.createTicket(
+          {
+            type: d.payload.type,
+            title: d.payload.title,
+            description: d.payload.description,
+            category: d.payload.category,
+            priority: d.payload.priority,
+            affected: d.payload.affected,
+          },
+          id,
+        );
         d.status = 'confirmado';
         d.resultTicketId = t.id;
         return { draft: d, ticket: t, handoff: null };

@@ -1,4 +1,4 @@
-import type { DraftPayload, DraftView, Employee, HandoffInfo, Ticket } from '@nexo/shared';
+import type { DraftPayload, DraftView, Employee, HandoffInfo, SupportQueue, Ticket } from '@nexo/shared';
 import type { TicketsClient } from '@nexo/tickets/client';
 
 /**
@@ -37,7 +37,7 @@ export interface HandoffRequest {
   reason: string;
   summary: string;
   ticketId: string | null;
-  queue: string;
+  queue: SupportQueue;
   confidence: number | null;
 }
 

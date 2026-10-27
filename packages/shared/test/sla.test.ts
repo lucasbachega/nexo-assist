@@ -50,10 +50,7 @@ describe('status do prazo', () => {
   });
 
   it('dentro do prazo mostra o horário limite', () => {
-    const s = computeSlaStatus(
-      { priority: 'alta', status: 'aberto', lastSupportUpdateAt: sp('2026-10-27T09:43:00').toISOString() },
-      now,
-    );
+    const s = computeSlaStatus({ priority: 'alta', status: 'aberto', lastSupportUpdateAt: sp('2026-10-27T09:43:00').toISOString() }, now);
     expect(s.overdue).toBe(false);
     expect(s.summary).toBe('resposta até 13:43');
   });

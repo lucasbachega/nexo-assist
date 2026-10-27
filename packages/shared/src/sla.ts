@@ -98,10 +98,7 @@ export interface SlaStatus {
   summary: string;
 }
 
-export function computeSlaStatus(
-  ticket: Pick<Ticket, 'priority' | 'status' | 'lastSupportUpdateAt'>,
-  now: Date = new Date(),
-): SlaStatus {
+export function computeSlaStatus(ticket: Pick<Ticket, 'priority' | 'status' | 'lastSupportUpdateAt'>, now: Date = new Date()): SlaStatus {
   const rule = SLA_RULES[ticket.priority].label;
   const sinceLastUpdate = formatSince(ticket.lastSupportUpdateAt, now);
   if (!SLA_RUNNING_STATUSES.includes(ticket.status)) {
@@ -124,8 +121,6 @@ export function computeSlaStatus(
     deadline: deadline.toISOString(),
     overdue,
     sinceLastUpdate,
-    summary: overdue
-      ? 'prazo vencido'
-      : `resposta até ${sameDay ? formatTime(deadline) : formatDateTime(deadline)}`,
+    summary: overdue ? 'prazo vencido' : `resposta até ${sameDay ? formatTime(deadline) : formatDateTime(deadline)}`,
   };
 }

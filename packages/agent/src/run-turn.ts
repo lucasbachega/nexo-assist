@@ -44,8 +44,7 @@ export async function runTurn(input: RunTurnInput): Promise<TurnResult> {
   const started = Date.now();
   const { ports, emit } = input;
   const tracer = new TurnTracer(emit);
-  const state: TurnState = { handedOff: false, draftCreated: false, focusTicketId: null };
-  let handoff: HandoffInfo | null = null;
+  const state: TurnState = { handoff: null, draftCreated: false, focusTicketId: null };
 
   const agent = new Agent({
     id: 'nexo-assist',
@@ -74,41 +73,38 @@ export async function runTurn(input: RunTurnInput): Promise<TurnResult> {
   }
   const usage = await stream.totalUsage.catch(() => null);
 
-  // Em transferências, os passos já foram registrados pelas ferramentas.
   const guardrails: string[] = [];
-  let decision = tracer.decision;
-  let decisionInferred = false;
-  if (!decision) {
-    decision = inferDecision(tracer, state);
-    decisionInferred = true;
+  const decisionInferred = tracer.decision === null;
+  const decision = tracer.decision ?? inferDecision(tracer, state);
+  if (decisionInferred) {
     guardrails.push('O modelo não registrou a decisão neste turno; o resumo foi inferido pelo sistema a partir das ações.');
   }
 
-  // Guardrail: confiança baixa sem informação faltando → analista (regra de transferência do Anexo A).
+  // Regra do Anexo A: sem segurança sobre o que fazer → analista.
   if (
     !decisionInferred &&
-    !state.handedOff &&
+    !state.handoff &&
     decision.confidence < LOW_CONFIDENCE_THRESHOLD &&
     decision.missingInfo.length === 0 &&
     decision.intent !== 'fora_do_escopo'
   ) {
-    handoff = await tracer.step('transferiu para Suporte N1', 'guardrail_confianca', async (ctx) => {
+    const handoff = await tracer.step('transferiu para Suporte N1', 'guardrail_confianca', async (ctx) => {
       const h = await ports.handoff.transfer({
         trigger: 'baixa_confianca',
         reason: 'Agent sem segurança para decidir',
-        summary: `${decision!.understood}. ${decision!.rationale}`,
+        summary: `${decision.understood}. ${decision.rationale}`,
         ticketId: state.focusTicketId ?? ports.conversation.ticketId,
         queue: 'Suporte N1',
-        confidence: decision!.confidence,
+        confidence: decision.confidence,
       });
-      ctx.detail(`Confiança ${Math.round(decision!.confidence * 100)}% < mínimo de ${LOW_CONFIDENCE_THRESHOLD * 100}%`);
+      ctx.detail(`Confiança ${Math.round(decision.confidence * 100)}% < mínimo de ${LOW_CONFIDENCE_THRESHOLD * 100}%`);
       return h;
     });
-    state.handedOff = true;
+    state.handoff = handoff;
     tracer.addBlock({ type: 'handoff', queue: handoff.queue, eta: handoff.dueAt, summary: handoff.summary });
     const note = 'Para não te passar uma informação errada, vou chamar um analista para te ajudar com isso.';
+    emit({ type: 'text', delta: text ? `\n\n${note}` : note });
     text = text ? `${text.trim()}\n\n${note}` : note;
-    emit({ type: 'text', delta: `\n\n${note}` });
     guardrails.push(
       `Confiança de ${Math.round(decision.confidence * 100)}% abaixo do mínimo de ${LOW_CONFIDENCE_THRESHOLD * 100}% → conversa transferida automaticamente.`,
     );
@@ -118,22 +114,6 @@ export async function runTurn(input: RunTurnInput): Promise<TurnResult> {
     text = fallbackText(state);
     emit({ type: 'text', delta: text });
     guardrails.push('O modelo não escreveu texto final; usada uma frase padrão.');
-  }
-
-  if (!handoff && state.handedOff) {
-    const hb = tracer.blocks.find((b) => b.type === 'handoff');
-    if (hb && hb.type === 'handoff') {
-      handoff = {
-        reason: '',
-        trigger: 'outro',
-        queue: hb.queue,
-        summary: hb.summary,
-        ticketId: state.focusTicketId,
-        confidence: null,
-        at: new Date().toISOString(),
-        dueAt: hb.eta,
-      };
-    }
   }
 
   const trace: TurnTrace = {
@@ -146,11 +126,11 @@ export async function runTurn(input: RunTurnInput): Promise<TurnResult> {
     decisionInferred,
   };
 
-  return { text: text.trim(), blocks: tracer.blocks, trace, handoff, focusTicketId: state.focusTicketId };
+  return { text: text.trim(), blocks: tracer.blocks, trace, handoff: state.handoff, focusTicketId: state.focusTicketId };
 }
 
 function fallbackText(state: TurnState): string {
-  if (state.handedOff) return 'Encaminhei para um analista. Ele vai continuar o atendimento por aqui.';
+  if (state.handoff) return 'Encaminhei para um analista. Ele vai continuar o atendimento por aqui.';
   if (state.draftCreated) return 'Confira os dados antes de eu continuar:';
   return 'Pode me contar um pouco mais sobre o que está acontecendo?';
 }
@@ -160,7 +140,7 @@ export function inferDecision(tracer: TurnTracer, state: TurnState): Decision {
   const tools = new Set(tracer.steps.map((s) => s.tool));
   let intent: Intent = 'conversa';
   let action = 'Respondeu sem usar ferramentas';
-  if (state.handedOff) {
+  if (state.handoff) {
     intent = 'falar_com_analista';
     action = 'Transferiu para um analista';
   } else if (tools.has('preparar_chamado') || tools.has('confirmar_rascunho')) {

@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "eval": "tsx --env-file-if-exists=../../.env evals/run.ts"

@@ -23,12 +23,7 @@ export class TurnTracer {
 
   constructor(private readonly emit: Emit) {}
 
-  async step<T>(
-    label: string,
-    tool: string,
-    fn: (ctx: StepContext) => Promise<T>,
-    opts: { silent?: boolean } = {},
-  ): Promise<T> {
+  async step<T>(label: string, tool: string, fn: (ctx: StepContext) => Promise<T>, opts: { silent?: boolean } = {}): Promise<T> {
     const id = `s${(this.seq += 1)}`;
     const startedAt = new Date();
     const details: string[] = [];

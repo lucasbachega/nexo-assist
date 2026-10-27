@@ -1,11 +1,7 @@
 import { z } from 'zod';
-import type { Affected, Category, Priority, TicketStatus, TicketType } from './domain';
+import type { Affected, Category, Priority, SupportQueue, TicketStatus, TicketType } from './domain';
 import type { PriorityFacts } from './priority';
 import type { SlaStatus } from './sla';
-
-/* ------------------------------------------------------------------------- */
-/* Visões de chamado que vão para a interface                                 */
-/* ------------------------------------------------------------------------- */
 
 export interface TicketView {
   id: string;
@@ -20,10 +16,6 @@ export interface TicketView {
   lastSupportUpdateAt: string;
   sla: SlaStatus;
 }
-
-/* ------------------------------------------------------------------------- */
-/* Blocos de UI anexados às respostas do agent                                */
-/* ------------------------------------------------------------------------- */
 
 export interface DraftPayload {
   kind: 'criar' | 'complementar' | 'reabrir';
@@ -60,11 +52,7 @@ export type UiBlock =
   | { type: 'draft'; draft: DraftView }
   | { type: 'quick_replies'; question: string | null; options: string[] }
   | { type: 'kb_article'; id: string; title: string; applicable: boolean; note: string | null }
-  | { type: 'handoff'; queue: string; eta: string | null; summary: string };
-
-/* ------------------------------------------------------------------------- */
-/* Transparência: o que o agent fez, entendeu e por quê                       */
-/* ------------------------------------------------------------------------- */
+  | { type: 'handoff'; queue: SupportQueue; eta: string | null; summary: string };
 
 export const INTENTS = [
   'duvida',
@@ -107,7 +95,6 @@ export interface TraceStep {
   durationMs: number;
   /** Tentativas no sistema de chamados (o legado às vezes fica indisponível). */
   attempts: number;
-  /** Linhas legíveis com o que foi consultado/decidido. */
   details: string[];
   /** Passos internos (ex.: registrar a decisão) aparecem só no detalhe, não nos rótulos. */
   silent: boolean;
@@ -126,10 +113,6 @@ export interface TurnTrace {
   /** true quando o turno falhou (ex.: provedor do modelo fora do ar). */
   failed?: boolean;
 }
-
-/* ------------------------------------------------------------------------- */
-/* Conversas                                                                  */
-/* ------------------------------------------------------------------------- */
 
 export const CONVERSATION_STATUSES = ['agent', 'aguardando_atendente', 'com_analista', 'encerrada'] as const;
 export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
@@ -152,7 +135,7 @@ export interface HandoffInfo {
   reason: string;
   /** Motivo categorizado: pedido do funcionário, crítico, vencido ou baixa confiança. */
   trigger: 'pedido' | 'critico' | 'vencido' | 'baixa_confianca' | 'outro';
-  queue: string;
+  queue: SupportQueue;
   summary: string;
   ticketId: string | null;
   confidence: number | null;
@@ -172,10 +155,6 @@ export interface ConversationView {
   createdAt: string;
   updatedAt: string;
 }
-
-/* ------------------------------------------------------------------------- */
-/* Eventos do streaming de um turno (SSE)                                     */
-/* ------------------------------------------------------------------------- */
 
 export type TurnEvent =
   | { type: 'user_message'; message: ChatMessage }

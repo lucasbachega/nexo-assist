@@ -19,6 +19,7 @@ import {
   toTicketView,
   type DraftPayload,
   type Employee,
+  type HandoffInfo,
   type Ticket,
 } from '@nexo/shared';
 import { TicketsApiError, TicketsUnavailableError, isNotFound } from '@nexo/tickets/client';
@@ -27,7 +28,7 @@ import type { TurnTracer } from './tracer';
 
 /** Estado compartilhado entre as ferramentas durante um turno. */
 export interface TurnState {
-  handedOff: boolean;
+  handoff: HandoffInfo | null;
   draftCreated: boolean;
   focusTicketId: string | null;
 }
@@ -74,7 +75,8 @@ function osApplies(appliesTo: string[], employee: Employee): boolean {
   return appliesTo.some((a) => os.includes(a.toLowerCase()));
 }
 
-const AFFIRMATIVE = /\b(sim|pode|confirmo|confirma|confirmar|ok|okay|isso|certo|perfeito|manda|cria|criar|abre|abrir|beleza|fechado|positivo)\b/i;
+const AFFIRMATIVE =
+  /\b(sim|pode|confirmo|confirma|confirmar|ok|okay|isso|certo|perfeito|manda|cria|criar|abre|abrir|beleza|fechado|positivo)\b/i;
 const NEGATIVE = /\b(n[aã]o|espera|aguarda|cancela|errado)\b/i;
 
 export function isTextConfirmation(message: string): boolean {
@@ -83,8 +85,7 @@ export function isTextConfirmation(message: string): boolean {
 
 export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnState) {
   const now = () => ports.now();
-  const tickets = (ctx: { onAttempt: Parameters<typeof ports.tickets.withObserver>[0] }) =>
-    ports.tickets.withObserver(ctx.onAttempt);
+  const tickets = (ctx: { onAttempt: Parameters<typeof ports.tickets.withObserver>[0] }) => ports.tickets.withObserver(ctx.onAttempt);
 
   const buscar_central_ajuda = createTool({
     id: 'buscar_central_ajuda',
@@ -101,7 +102,9 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
             const aplica = osApplies(h.article.appliesToOs, ports.employee);
             ctx.detail(
               `${h.article.id} "${h.article.title}" — relevância ${Math.round(h.score * 100)}%${
-                h.article.appliesToOs.length ? `; vale para ${h.article.appliesToOs.join(', ')} (${aplica ? 'se aplica' : `não se aplica: ${ports.employee.os ?? 'SO desconhecido'}`})` : ''
+                h.article.appliesToOs.length
+                  ? `; vale para ${h.article.appliesToOs.join(', ')} (${aplica ? 'se aplica' : `não se aplica: ${ports.employee.os ?? 'SO desconhecido'}`})`
+                  : ''
               }`,
             );
             return {
@@ -165,7 +168,8 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
 
   const consultar_chamado = createTool({
     id: 'consultar_chamado',
-    description: 'Consulta um chamado do funcionário pelo número (ex.: INC-20311), com histórico e situação do prazo. Exibe o cartão do chamado.',
+    description:
+      'Consulta um chamado do funcionário pelo número (ex.: INC-20311), com histórico e situação do prazo. Exibe o cartão do chamado.',
     inputSchema: z.object({ id: z.string().regex(/^(INC|REQ)-\d+$/i, 'Use o formato INC-12345 ou REQ-12345') }),
     execute: async ({ id }) =>
       guard(async () => {
@@ -190,7 +194,9 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
             ...ticketForModel(ticket, now()),
             descricao: ticket.description,
             pode_reabrir: canReopen(ticket, now()),
-            historico_recente: events.slice(-4).map((e) => ({ quando: formatDateTime(e.at), autor: e.authorName ?? e.author, texto: e.text })),
+            historico_recente: events
+              .slice(-4)
+              .map((e) => ({ quando: formatDateTime(e.at), autor: e.authorName ?? e.author, texto: e.text })),
           };
         } catch (err) {
           if (isNotFound(err)) {
@@ -215,10 +221,7 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
         .max(600)
         .describe('Descrição completa para o analista: o que acontece, desde quando, mensagem de erro, o que já foi tentado e o impacto'),
       fatos_prioridade: PriorityFactsSchema,
-      ignorar_duplicados: z
-        .array(z.string())
-        .optional()
-        .describe('Chamados que o funcionário já confirmou serem de outro problema'),
+      ignorar_duplicados: z.array(z.string()).optional().describe('Chamados que o funcionário já confirmou serem de outro problema'),
     }),
     execute: async (input) =>
       guard(async () => {
@@ -360,7 +363,12 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
           ]);
           return { erro: 'sem_confirmacao', mensagem: 'A mensagem não é uma confirmação clara. Peça para confirmar no botão.' };
         }
-        const label = pending.payload.kind === 'criar' ? 'criou o chamado' : pending.payload.kind === 'reabrir' ? 'reabriu o chamado' : 'atualizou o chamado';
+        const label =
+          pending.payload.kind === 'criar'
+            ? 'criou o chamado'
+            : pending.payload.kind === 'reabrir'
+              ? 'reabriu o chamado'
+              : 'atualizou o chamado';
         const result = await tracer.step(label, 'confirmar_rascunho', async (ctx) => {
           const r = await ports.drafts.confirm(pending.id);
           ctx.detail(`Confirmado por texto: "${ports.conversation.lastUserMessage}"`);
@@ -372,7 +380,7 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
           state.focusTicketId = result.ticket.id;
         }
         if (result.handoff) {
-          state.handedOff = true;
+          state.handoff = result.handoff;
           tracer.addBlock({ type: 'handoff', queue: result.handoff.queue, eta: result.handoff.dueAt, summary: result.handoff.summary });
         }
         return {
@@ -385,8 +393,7 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
 
   const transferir_para_analista = createTool({
     id: 'transferir_para_analista',
-    description:
-      'Transfere a conversa para um analista humano. A partir daí você para de responder até o analista devolver a conversa.',
+    description: 'Transfere a conversa para um analista humano. A partir daí você para de responder até o analista devolver a conversa.',
     inputSchema: z.object({
       motivo: z.enum(['pedido', 'critico', 'vencido', 'baixa_confianca', 'outro']).describe('Por que transferir'),
       resumo: z
@@ -394,12 +401,15 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
         .min(20)
         .max(800)
         .describe('Resumo do caso para o analista: problema, o que já foi tentado, impacto e chamado relacionado'),
-      chamado_id: z.string().regex(/^(INC|REQ)-\d+$/i).optional(),
+      chamado_id: z
+        .string()
+        .regex(/^(INC|REQ)-\d+$/i)
+        .optional(),
       confianca: z.number().min(0).max(1).optional().describe('Sua confiança atual, se o motivo for baixa_confianca'),
     }),
     execute: async ({ motivo, resumo, chamado_id, confianca }) =>
       guard(async () => {
-        if (state.handedOff) return { status: 'ja_transferida' };
+        if (state.handoff) return { status: 'ja_transferida' };
         const queue = motivo === 'critico' || motivo === 'vencido' ? 'Suporte N2' : 'Suporte N1';
         const reasonText: Record<typeof motivo, string> = {
           pedido: 'Funcionário pediu para falar com um analista',
@@ -422,7 +432,7 @@ export function createTools(ports: AgentPorts, tracer: TurnTracer, state: TurnSt
           ctx.detail(`Resumo enviado: ${resumo}`);
           return h;
         });
-        state.handedOff = true;
+        state.handoff = handoff;
         tracer.addBlock({ type: 'handoff', queue: handoff.queue, eta: handoff.dueAt, summary: handoff.summary });
         return {
           status: 'transferida',

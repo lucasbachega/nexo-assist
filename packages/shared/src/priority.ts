@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AffectedSchema, PRIORITY_LABEL, type Affected, type Priority, type TicketType } from './domain';
+import { AffectedSchema, type Affected, type Priority, type TicketType } from './domain';
 
 /**
  * Matriz de prioridade do Anexo A.
@@ -18,13 +18,9 @@ import { AffectedSchema, PRIORITY_LABEL, type Affected, type Priority, type Tick
  */
 export const PriorityFactsSchema = z.object({
   affected: AffectedSchema.describe('Quem é afetado: só a pessoa, a equipe ou a empresa toda'),
-  workStopped: z
-    .boolean()
-    .describe('true se o problema impede de trabalhar (algo parado), false se atrapalha mas dá para seguir'),
+  workStopped: z.boolean().describe('true se o problema impede de trabalhar (algo parado), false se atrapalha mas dá para seguir'),
   hasWorkaround: z.boolean().describe('true se existe alternativa razoável enquanto o chamado é tratado'),
-  sameDayCommitment: z
-    .boolean()
-    .describe('true se há um compromisso hoje em risco (reunião, entrega, apresentação)'),
+  sameDayCommitment: z.boolean().describe('true se há um compromisso hoje em risco (reunião, entrega, apresentação)'),
 });
 export type PriorityFacts = z.infer<typeof PriorityFactsSchema>;
 
@@ -61,8 +57,4 @@ export function classifyPriority(type: TicketType, facts: PriorityFacts): Priori
     return { priority: 'baixa', rule: 'Pedido sem urgência → Baixa' };
   }
   return { priority: 'media', rule: 'Atrapalha, mas há alternativa → Média' };
-}
-
-export function describePriority(priority: Priority): string {
-  return PRIORITY_LABEL[priority];
 }

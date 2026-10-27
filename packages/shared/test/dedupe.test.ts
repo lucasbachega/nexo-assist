@@ -42,8 +42,19 @@ describe('detecção de duplicidade', () => {
   });
 
   it('sugere reabrir chamado resolvido há até 7 dias, e não um mais antigo', () => {
-    const sap = ticket({ id: 'INC-20150', title: 'Senha do SAP bloqueada', description: 'Senha do SAP bloqueada após tentativas', category: 'Acesso', status: 'resolvido', resolvedAt: '2026-10-23T12:00:00Z' });
-    const draft = { title: 'SAP bloqueou minha senha de novo', description: 'A senha do SAP bloqueou outra vez', category: 'Acesso' as const };
+    const sap = ticket({
+      id: 'INC-20150',
+      title: 'Senha do SAP bloqueada',
+      description: 'Senha do SAP bloqueada após tentativas',
+      category: 'Acesso',
+      status: 'resolvido',
+      resolvedAt: '2026-10-23T12:00:00Z',
+    });
+    const draft = {
+      title: 'SAP bloqueou minha senha de novo',
+      description: 'A senha do SAP bloqueou outra vez',
+      category: 'Acesso' as const,
+    };
     expect(findDuplicateCandidates(draft, [sap], now)[0]?.action).toBe('reabrir');
     const old = { ...sap, resolvedAt: '2026-10-10T12:00:00Z' };
     expect(canReopen(old, now)).toBe(false);

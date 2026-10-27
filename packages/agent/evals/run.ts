@@ -29,7 +29,8 @@ interface Scenario {
 }
 
 const tools = (r: TurnResult) => new Set(r.trace.steps.map((s) => s.tool));
-const block = <T extends UiBlock['type']>(r: TurnResult, t: T) => r.blocks.find((b) => b.type === t) as Extract<UiBlock, { type: T }> | undefined;
+const block = <T extends UiBlock['type']>(r: TurnResult, t: T) =>
+  r.blocks.find((b) => b.type === t) as Extract<UiBlock, { type: T }> | undefined;
 const used = (tool: string): Check => ({ name: `usou ${tool}`, ok: (r) => tools(r).has(tool) });
 const notUsed = (tool: string): Check => ({ name: `não usou ${tool}`, ok: (r) => !tools(r).has(tool) });
 const intent = (i: string): Check => ({ name: `intenção ${i}`, ok: (r) => r.trace.decision?.intent === i });
@@ -56,7 +57,10 @@ const SCENARIOS: Scenario[] = [
     turns: ['Como está o INC-20311?'],
     checks: [
       used('consultar_chamado'),
-      { name: 'ofereceu chamar analista', ok: (r) => !!block(r, 'quick_replies')?.options.some((o) => /analista/i.test(o)) || /analista/i.test(r.text) },
+      {
+        name: 'ofereceu chamar analista',
+        ok: (r) => !!block(r, 'quick_replies')?.options.some((o) => /analista/i.test(o)) || /analista/i.test(r.text),
+      },
       mentions(/venc|prazo|dias/i),
       registered,
     ],
@@ -67,8 +71,14 @@ const SCENARIOS: Scenario[] = [
     turns: ['Meu notebook não conecta na VPN desde ontem. Aparece o erro 809.'],
     checks: [
       used('buscar_central_ajuda'),
-      { name: 'percebeu que o artigo não se aplica (Windows 11)', ok: (r) => /windows 1[01]|não se aplica|nao se aplica/i.test(r.text) || block(r, 'kb_article')?.applicable === false },
-      { name: 'perguntou antes de montar o rascunho', ok: (r, w) => !w.drafts.length && (!!block(r, 'quick_replies') || r.text.includes('?')) },
+      {
+        name: 'percebeu que o artigo não se aplica (Windows 11)',
+        ok: (r) => /windows 1[01]|não se aplica|nao se aplica/i.test(r.text) || block(r, 'kb_article')?.applicable === false,
+      },
+      {
+        name: 'perguntou antes de montar o rascunho',
+        ok: (r, w) => !w.drafts.length && (!!block(r, 'quick_replies') || r.text.includes('?')),
+      },
       registered,
     ],
   },
@@ -81,8 +91,17 @@ const SCENARIOS: Scenario[] = [
     ],
     checks: [
       used('preparar_chamado'),
-      { name: 'rascunho INC / Rede e VPN / Alta', ok: (r) => { const d = block(r, 'draft')?.draft.payload; return d?.type === 'INC' && d.category === 'Rede e VPN' && d.priority === 'alta'; } },
-      { name: 'não criou o chamado sem confirmação', ok: (_r, w) => w.repo.listTickets({ requesterId: 'emp-ana', scope: 'open' }).length === 3 },
+      {
+        name: 'rascunho INC / Rede e VPN / Alta',
+        ok: (r) => {
+          const d = block(r, 'draft')?.draft.payload;
+          return d?.type === 'INC' && d.category === 'Rede e VPN' && d.priority === 'alta';
+        },
+      },
+      {
+        name: 'não criou o chamado sem confirmação',
+        ok: (_r, w) => w.repo.listTickets({ requesterId: 'emp-ana', scope: 'open' }).length === 3,
+      },
       registered,
     ],
   },
@@ -119,7 +138,10 @@ const SCENARIOS: Scenario[] = [
     employee: 'emp-carla',
     turns: ['A VPN caiu para toda a equipe comercial desde 9h, ninguém consegue acessar o SAP e estamos parados. Não temos alternativa.'],
     checks: [
-      { name: 'tratou como crítico (rascunho crítico ou transferência)', ok: (r) => block(r, 'draft')?.draft.payload.priority === 'critica' || r.handoff !== null },
+      {
+        name: 'tratou como crítico (rascunho crítico ou transferência)',
+        ok: (r) => block(r, 'draft')?.draft.payload.priority === 'critica' || r.handoff !== null,
+      },
       registered,
     ],
   },
@@ -127,7 +149,13 @@ const SCENARIOS: Scenario[] = [
     name: 'fora-do-escopo',
     employee: 'emp-ana',
     turns: ['Quando cai o meu salário este mês?'],
-    checks: [intent('fora_do_escopo'), notUsed('preparar_chamado'), notUsed('transferir_para_analista'), mentions(/RH|Pessoas|TI/i), registered],
+    checks: [
+      intent('fora_do_escopo'),
+      notUsed('preparar_chamado'),
+      notUsed('transferir_para_analista'),
+      mentions(/RH|Pessoas|TI/i),
+      registered,
+    ],
   },
   {
     name: 'complementar-chamado',
@@ -135,7 +163,13 @@ const SCENARIOS: Scenario[] = [
     turns: ['Quero acrescentar no INC-20311 que agora a tela também está piscando.'],
     checks: [
       used('preparar_complemento'),
-      { name: 'rascunho de complemento do INC-20311', ok: (r) => { const d = block(r, 'draft')?.draft.payload; return d?.kind === 'complementar' && d.ticketId === 'INC-20311'; } },
+      {
+        name: 'rascunho de complemento do INC-20311',
+        ok: (r) => {
+          const d = block(r, 'draft')?.draft.payload;
+          return d?.kind === 'complementar' && d.ticketId === 'INC-20311';
+        },
+      },
       registered,
     ],
   },
@@ -148,7 +182,17 @@ const SCENARIOS: Scenario[] = [
 ];
 
 function toHistoryMessage(role: 'user' | 'assistant', text: string, blocks: UiBlock[] = [], seq = 0): ChatMessage {
-  return { id: `h${seq}`, seq, conversationId: 'c1', role, authorName: null, text, blocks, trace: null, createdAt: new Date().toISOString() };
+  return {
+    id: `h${seq}`,
+    seq,
+    conversationId: 'c1',
+    role,
+    authorName: null,
+    text,
+    blocks,
+    trace: null,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 async function runScenario(s: Scenario, model: string) {
@@ -167,12 +211,23 @@ async function runScenario(s: Scenario, model: string) {
     if (last.handoff) break;
   }
   const results = s.checks.map((c) => ({ check: c.name, ok: last ? c.ok(last, w) : false }));
-  return { scenario: s.name, ok: results.every((r) => r.ok), results, text: last?.text ?? '', decision: last?.trace.decision, tokensIn, tokensOut, ms: Date.now() - started };
+  return {
+    scenario: s.name,
+    ok: results.every((r) => r.ok),
+    results,
+    text: last?.text ?? '',
+    decision: last?.trace.decision,
+    tokensIn,
+    tokensOut,
+    ms: Date.now() - started,
+  };
 }
 
 async function main() {
   const model = process.env.MODEL || 'anthropic/claude-haiku-4-5';
-  const keyVar = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', google: 'GOOGLE_GENERATIVE_AI_API_KEY' }[model.split('/')[0] ?? ''];
+  const keyVar = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', google: 'GOOGLE_GENERATIVE_AI_API_KEY' }[
+    model.split('/')[0] ?? ''
+  ];
   if (keyVar && !process.env[keyVar]) {
     console.error(`Defina ${keyVar} no .env para rodar a avaliação com ${model}.`);
     process.exit(2);
