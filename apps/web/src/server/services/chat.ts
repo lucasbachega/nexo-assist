@@ -7,9 +7,14 @@ import type { DraftService } from './drafts';
 import { ServiceError } from './errors';
 import type { HandoffService } from './handoff';
 
-export const MAX_MESSAGE_LENGTH = 2000;
+const MAX_MESSAGE_LENGTH = 2000;
 
-export function toConversationView(c: ConversationRecord): ConversationView {
+/** Erros do provedor que não se resolvem tentando de novo: chave inválida, sem crédito, sem permissão. */
+export function isProviderConfigError(message: string): boolean {
+  return /api[ _-]?key|x-api-key|authentication|unauthorized|credit balance|billing|permission/i.test(message);
+}
+
+function toConversationView(c: ConversationRecord): ConversationView {
   return {
     id: c.id,
     employeeId: c.employeeId,
@@ -49,7 +54,16 @@ export class ChatService {
       if (cached) return cached.employee;
       if (err instanceof TicketsUnavailableError) {
         // Sem o diretório, seguimos com os dados da sessão (sem equipamento).
-        return { id: session.userId, name: session.name, email: session.email, role: 'funcionario', department: session.department, device: null, os: null, team: null };
+        return {
+          id: session.userId,
+          name: session.name,
+          email: session.email,
+          role: 'funcionario',
+          department: session.department,
+          device: null,
+          os: null,
+          team: null,
+        };
       }
       throw err;
     }
@@ -89,7 +103,11 @@ export class ChatService {
 
     const usage = this.usage(session);
     if (usage.used >= usage.limit) {
-      throw new ServiceError(429, `Você atingiu o limite de ${usage.limit} mensagens nesta sessão. Saia e entre de novo para continuar.`, 'limite_sessao');
+      throw new ServiceError(
+        429,
+        `Você atingiu o limite de ${usage.limit} mensagens nesta sessão. Saia e entre de novo para continuar.`,
+        'limite_sessao',
+      );
     }
     const hourAgo = new Date(clock().getTime() - 3600_000).toISOString();
     if (store.countUserMessagesSince(session.userId, hourAgo) >= limits.perHour) {
@@ -99,7 +117,11 @@ export class ChatService {
     if (limits.perDayGlobal) {
       const dayAgo = new Date(clock().getTime() - 86_400_000).toISOString();
       if (store.countAllUserMessagesSince(dayAgo) >= limits.perDayGlobal) {
-        throw new ServiceError(429, 'O assistente atingiu o limite de uso de hoje. Ligue no ramal 4000 para falar com o service desk.', 'limite_global');
+        throw new ServiceError(
+          429,
+          'O assistente atingiu o limite de uso de hoje. Ligue no ramal 4000 para falar com o service desk.',
+          'limite_global',
+        );
       }
     }
 
@@ -108,7 +130,14 @@ export class ChatService {
     this.running.add(conv.id);
     try {
       const history = store.listMessages(conv.id);
-      const userMessage = store.addMessage({ conversationId: conv.id, role: 'user', authorId: session.userId, authorName: session.name, text, sessionId: session.id });
+      const userMessage = store.addMessage({
+        conversationId: conv.id,
+        role: 'user',
+        authorId: session.userId,
+        authorName: session.name,
+        text,
+        sessionId: session.id,
+      });
       emit({ type: 'user_message', message: userMessage });
 
       // Com um analista (ou aguardando um), o agent não responde.
@@ -196,16 +225,20 @@ export class ChatService {
     } catch (err) {
       if (signal?.aborted) throw err;
       console.error('[chat] falha no turno do agent', err);
+      const reason = err instanceof Error ? err.message : String(err);
+      const configProblem = isProviderConfigError(reason);
       // A falha fica registrada na conversa, para o histórico continuar coerente.
       return store.addMessage({
         conversationId: conv.id,
         role: 'assistant',
         authorName: 'Nexo Assist',
-        text: 'Tive um problema para responder agora. Pode tentar de novo em instantes?',
+        text: configProblem
+          ? 'O assistente está indisponível por um problema de configuração. Avise a TI no ramal 4000.'
+          : 'Tive um problema para responder agora. Pode tentar de novo em instantes?',
         trace: {
           steps: [],
           decision: null,
-          guardrails: [`Falha ao gerar a resposta: ${err instanceof Error ? err.message : String(err)}`],
+          guardrails: [`Falha ao gerar a resposta: ${reason}`],
           model: this.deps.model.label,
           usage: null,
           latencyMs: 0,

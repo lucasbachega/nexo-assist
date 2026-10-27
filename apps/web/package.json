@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.0",
     "@fontsource/newsreader": "^5.2.0",
+    "@mastra/core": "^1.79.0",
     "@nexo/agent": "*",
     "@nexo/shared": "*",
     "@nexo/tickets": "*",

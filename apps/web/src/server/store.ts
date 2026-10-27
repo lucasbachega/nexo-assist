@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type {
   ChatMessage,
   ConversationStatus,
@@ -149,10 +149,8 @@ export class AppStore {
     return this.db.transaction(fn)();
   }
 
-  /* --------------------------------- sessões -------------------------------- */
-
   createSession(s: Omit<SessionRecord, 'id' | 'createdAt' | 'expiresAt'>, ttlHours: number): SessionRecord {
-    const id = randomUUID() + randomUUID().replace(/-/g, '');
+    const id = randomBytes(32).toString('base64url');
     const createdAt = this.now();
     const expiresAt = new Date(this.clock().getTime() + ttlHours * 3600_000).toISOString();
     this.db
@@ -165,17 +163,35 @@ export class AppStore {
 
   getSession(id: string): SessionRecord | null {
     const r = this.db.prepare('SELECT * FROM sessions WHERE id = ? AND expires_at > ?').get(id, this.now()) as
-      | { id: string; user_id: string; role: Role; name: string; email: string; department: string; team: string | null; created_at: string; expires_at: string }
+      | {
+          id: string;
+          user_id: string;
+          role: Role;
+          name: string;
+          email: string;
+          department: string;
+          team: string | null;
+          created_at: string;
+          expires_at: string;
+        }
       | undefined;
     if (!r) return null;
-    return { id: r.id, userId: r.user_id, role: r.role, name: r.name, email: r.email, department: r.department, team: r.team, createdAt: r.created_at, expiresAt: r.expires_at };
+    return {
+      id: r.id,
+      userId: r.user_id,
+      role: r.role,
+      name: r.name,
+      email: r.email,
+      department: r.department,
+      team: r.team,
+      createdAt: r.created_at,
+      expiresAt: r.expires_at,
+    };
   }
 
   deleteSession(id: string) {
     this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
   }
-
-  /* -------------------------------- conversas ------------------------------- */
 
   createConversation(e: { id: string; name: string; department: string }): ConversationRecord {
     const id = `conv_${randomUUID()}`;
@@ -203,7 +219,9 @@ export class AppStore {
   }
 
   listConversations(limit = 100): ConversationRecord[] {
-    return (this.db.prepare('SELECT * FROM conversations ORDER BY last_message_at DESC LIMIT ?').all(limit) as ConversationRow[]).map(toConversation);
+    return (this.db.prepare('SELECT * FROM conversations ORDER BY last_message_at DESC LIMIT ?').all(limit) as ConversationRow[]).map(
+      toConversation,
+    );
   }
 
   updateConversation(id: string, patch: ConversationPatch): ConversationRecord {
@@ -229,8 +247,6 @@ export class AppStore {
     return this.getConversation(id) as ConversationRecord;
   }
 
-  /* -------------------------------- mensagens ------------------------------- */
-
   addMessage(m: NewMessage): ChatMessage {
     const id = `msg_${randomUUID()}`;
     const createdAt = this.now();
@@ -241,7 +257,18 @@ export class AppStore {
           `INSERT INTO messages (id, conversation_id, role, author_id, author_name, text, blocks_json, trace_json, session_id, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(id, m.conversationId, m.role, m.authorId ?? null, m.authorName ?? null, m.text, JSON.stringify(blocks), m.trace ? JSON.stringify(m.trace) : null, m.sessionId ?? null, createdAt);
+        .run(
+          id,
+          m.conversationId,
+          m.role,
+          m.authorId ?? null,
+          m.authorName ?? null,
+          m.text,
+          JSON.stringify(blocks),
+          m.trace ? JSON.stringify(m.trace) : null,
+          m.sessionId ?? null,
+          createdAt,
+        );
       // Eventos de sistema não viram prévia na lista do console.
       const preview = m.role === 'system' ? null : m.text.replace(/\s+/g, ' ').slice(0, 140);
       const unreadBump = m.role === 'user' ? 1 : 0;
@@ -278,7 +305,18 @@ export class AppStore {
       const blocks = (JSON.parse(r.blocks_json) as UiBlock[]).map((b): UiBlock => {
         if (b.type !== 'draft') return b;
         const fresh = drafts.get(b.draft.id);
-        return fresh ? { type: 'draft', draft: { id: fresh.id, status: fresh.status, payload: fresh.payload, resultTicketId: fresh.resultTicketId, error: fresh.error } } : b;
+        return fresh
+          ? {
+              type: 'draft',
+              draft: {
+                id: fresh.id,
+                status: fresh.status,
+                payload: fresh.payload,
+                resultTicketId: fresh.resultTicketId,
+                error: fresh.error,
+              },
+            }
+          : b;
       });
       return {
         id: r.id,
@@ -311,8 +349,6 @@ export class AppStore {
     return r.n;
   }
 
-  /* -------------------------------- rascunhos ------------------------------- */
-
   private nextDraftId(): string {
     const r = this.db.prepare(`UPDATE counters SET value = value + 1 WHERE name = 'draft' RETURNING value`).get() as { value: number };
     return `D-${r.value}`;
@@ -343,10 +379,15 @@ export class AppStore {
   }
 
   listDrafts(conversationId: string) {
-    return (this.db.prepare('SELECT * FROM drafts WHERE conversation_id = ? ORDER BY created_at').all(conversationId) as DraftRow[]).map(toDraft);
+    return (this.db.prepare('SELECT * FROM drafts WHERE conversation_id = ? ORDER BY created_at').all(conversationId) as DraftRow[]).map(
+      toDraft,
+    );
   }
 
-  updateDraft(id: string, patch: Partial<{ status: DraftStatus; payload: DraftPayload; resultTicketId: string | null; error: string | null }>) {
+  updateDraft(
+    id: string,
+    patch: Partial<{ status: DraftStatus; payload: DraftPayload; resultTicketId: string | null; error: string | null }>,
+  ) {
     const current = this.getDraft(id);
     if (!current) throw new Error(`Rascunho ${id} não encontrado`);
     this.db
@@ -367,7 +408,9 @@ export class AppStore {
    * Evita criar dois chamados com dois cliques rápidos (além da idempotência no serviço).
    */
   claimDraft(id: string): boolean {
-    const r = this.db.prepare(`UPDATE drafts SET status = 'processando', updated_at = ? WHERE id = ? AND status IN ('pendente', 'falhou')`).run(this.now(), id);
+    const r = this.db
+      .prepare(`UPDATE drafts SET status = 'processando', updated_at = ? WHERE id = ? AND status IN ('pendente', 'falhou')`)
+      .run(this.now(), id);
     return r.changes === 1;
   }
 }

@@ -98,4 +98,3 @@ export function openAppDatabase(file: string): Db {
   migrate(db);
   return db;
 }
-

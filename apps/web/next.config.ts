@@ -9,6 +9,7 @@ if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  devIndicators: false,
   // Pacotes do monorepo são TypeScript puro, compilados pelo Next.
   transpilePackages: ['@nexo/shared', '@nexo/agent', '@nexo/tickets'],
   // Dependências de servidor que não devem ser empacotadas.

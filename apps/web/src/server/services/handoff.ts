@@ -4,7 +4,7 @@ import type { HandoffRequest } from '@nexo/agent';
 import type { ServiceDeps } from './deps';
 
 /** Tempo para um analista assumir, por fila (crítico tem plantão 24h). */
-export function handoffDueAt(req: Pick<HandoffRequest, 'trigger' | 'queue'>, now: Date): Date {
+function handoffDueAt(req: Pick<HandoffRequest, 'trigger' | 'queue'>, now: Date): Date {
   if (req.trigger === 'critico') return new Date(now.getTime() + 15 * 60_000);
   return addBusinessMinutes(now, req.queue === 'Suporte N2' ? 120 : 30);
 }

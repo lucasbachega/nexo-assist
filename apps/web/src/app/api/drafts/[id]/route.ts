@@ -5,7 +5,6 @@ import { DraftEditSchema } from '@/server/services/drafts';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Editar o rascunho (botão Editar). */
 export const PATCH = handle(async (req: Request, { params }: Ctx) => {
   const session = await requireSession('funcionario');
   const { id } = await params;

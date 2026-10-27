@@ -4,15 +4,16 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { TurnEvent } from '@nexo/shared';
 import { TicketsClient } from '@nexo/tickets/client';
-import { createApp } from '../../../../../services/tickets/src/app';
-import { openDatabase } from '../../../../../services/tickets/src/db';
-import { TicketRepository } from '../../../../../services/tickets/src/repository';
-import { seed } from '../../../../../services/tickets/src/seed';
-import { NOW, scriptedModel } from '../../../../../packages/agent/test/helpers';
-import { openAppDatabase } from '../db-schema';
-import { AppStore, type SessionRecord } from '../store';
-import { createServices } from '.';
-import { ServiceError } from './errors';
+import { createApp } from '../../../services/tickets/src/app';
+import { openDatabase } from '../../../services/tickets/src/db';
+import { TicketRepository } from '../../../services/tickets/src/repository';
+import { seed } from '../../../services/tickets/src/seed';
+import { NOW, scriptedModel } from '../../../packages/agent/test/helpers';
+import { openAppDatabase } from '../src/server/db-schema';
+import { AppStore, type SessionRecord } from '../src/server/store';
+import { createServices } from '../src/server/services';
+import { isProviderConfigError } from '../src/server/services/chat';
+import { ServiceError } from '../src/server/services/errors';
 
 type Script = Parameters<typeof scriptedModel>[0];
 
@@ -62,7 +63,21 @@ const VPN_DRAFT: Script = [
       },
     ],
   },
-  { calls: [{ tool: 'registrar_decisao', args: { understood: 'VPN', intent: 'abrir_chamado', action: 'Rascunho', confidence: 0.9, rationale: 'Reunião hoje', missingInfo: [] } }] },
+  {
+    calls: [
+      {
+        tool: 'registrar_decisao',
+        args: {
+          understood: 'VPN',
+          intent: 'abrir_chamado',
+          action: 'Rascunho',
+          confidence: 0.9,
+          rationale: 'Reunião hoje',
+          missingInfo: [],
+        },
+      },
+    ],
+  },
   { text: 'Coloquei prioridade alta por causa da reunião. Confira antes de eu criar:' },
 ];
 
@@ -106,8 +121,33 @@ describe('chat do funcionário', () => {
 
   it('transferência: agent para de responder até o analista devolver', async () => {
     const w = setup([
-      { calls: [{ tool: 'transferir_para_analista', args: { motivo: 'pedido', resumo: 'Funcionária quer falar com um analista sobre o INC-20311 vencido.', chamado_id: 'INC-20311' } }] },
-      { calls: [{ tool: 'registrar_decisao', args: { understood: 'Quer analista', intent: 'falar_com_analista', action: 'Transferiu', confidence: 0.95, rationale: 'Pedido explícito', missingInfo: [] } }] },
+      {
+        calls: [
+          {
+            tool: 'transferir_para_analista',
+            args: {
+              motivo: 'pedido',
+              resumo: 'Funcionária quer falar com um analista sobre o INC-20311 vencido.',
+              chamado_id: 'INC-20311',
+            },
+          },
+        ],
+      },
+      {
+        calls: [
+          {
+            tool: 'registrar_decisao',
+            args: {
+              understood: 'Quer analista',
+              intent: 'falar_com_analista',
+              action: 'Transferiu',
+              confidence: 0.95,
+              rationale: 'Pedido explícito',
+              missingInfo: [],
+            },
+          },
+        ],
+      },
       { text: 'Encaminhei para o Suporte N1.' },
     ]);
     const ana = w.login('emp-ana', 'funcionario', 'Ana Souza');
@@ -142,7 +182,8 @@ describe('chat do funcionário', () => {
     const w = setup([]);
     const ana = w.login('emp-ana', 'funcionario', 'Ana Souza');
     const conv = w.store.createConversation({ id: 'emp-ana', name: 'Ana Souza', department: 'X' });
-    for (let i = 0; i < 30; i += 1) w.store.addMessage({ conversationId: conv.id, role: 'user', authorId: 'emp-ana', text: `m${i}`, sessionId: ana.id });
+    for (let i = 0; i < 30; i += 1)
+      w.store.addMessage({ conversationId: conv.id, role: 'user', authorId: 'emp-ana', text: `m${i}`, sessionId: ana.id });
     await expect(w.services.chat.send(ana, 'mais uma', w.emit)).rejects.toMatchObject({ status: 429 });
   });
 
@@ -161,5 +202,11 @@ describe('chat do funcionário', () => {
     expect(state.conversation?.id).toBe(conv.id);
     expect(state.conversation?.status).toBe('com_analista');
     expect(state.messages.some((m) => m.blocks.some((b) => b.type === 'draft'))).toBe(true);
+  });
+
+  it('reconhece erros de configuração do provedor do modelo', () => {
+    expect(isProviderConfigError('Your credit balance is too low to access the Anthropic API.')).toBe(true);
+    expect(isProviderConfigError('invalid x-api-key')).toBe(true);
+    expect(isProviderConfigError('Overloaded')).toBe(false);
   });
 });

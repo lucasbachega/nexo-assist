@@ -125,7 +125,9 @@ export class DraftService {
     if (opts.announce) {
       messages.push(store.addMessage(this.buildAnnouncement(draft.conversationId, confirmed, ticket, handoff, Date.now() - started)));
       if (handoff) {
-        messages.push(store.addMessage({ conversationId: draft.conversationId, role: 'system', text: `Transferida para ${handoff.queue}` }));
+        messages.push(
+          store.addMessage({ conversationId: draft.conversationId, role: 'system', text: `Transferida para ${handoff.queue}` }),
+        );
       }
     }
     return { draft: publicDraft(confirmed), ticket, handoff, messages };

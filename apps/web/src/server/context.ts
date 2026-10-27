@@ -23,7 +23,11 @@ export function services(): Services {
         store,
         tickets: (actor) => new TicketsClient({ baseUrl: config.ticketsUrl, token: config.ticketsToken, actor }),
         clock: () => new Date(),
-        limits: { perSession: config.maxMessagesPerSession, perHour: config.maxMessagesPerHour, perDayGlobal: config.maxMessagesPerDayGlobal },
+        limits: {
+          perSession: config.maxMessagesPerSession,
+          perHour: config.maxMessagesPerHour,
+          perDayGlobal: config.maxMessagesPerDayGlobal,
+        },
         model: { config: config.model, label: config.model, missingKey: missingModelKey() },
       },
       { sessionTtlHours: config.sessionTtlHours },

@@ -17,7 +17,6 @@ export const config = {
   secureCookies: process.env.NODE_ENV === 'production' && process.env.INSECURE_COOKIES !== 'true',
 };
 
-/** Verifica se a chave do provedor do modelo configurado existe. */
 export function missingModelKey(): string | null {
   const provider = config.model.split('/')[0]?.toLowerCase();
   const envByProvider: Record<string, string> = {

@@ -93,9 +93,16 @@ export class ConsoleService {
     const all = this.deps.store.listConversations(200);
     const q = query.trim().toLowerCase();
     const searched = q
-      ? all.filter((c) => c.employeeName.toLowerCase().includes(q) || (c.ticketId ?? '').toLowerCase().includes(q) || (c.lastMessagePreview ?? '').toLowerCase().includes(q))
+      ? all.filter(
+          (c) =>
+            c.employeeName.toLowerCase().includes(q) ||
+            (c.ticketId ?? '').toLowerCase().includes(q) ||
+            (c.lastMessagePreview ?? '').toLowerCase().includes(q),
+        )
       : all;
-    const counts = Object.fromEntries(CONSOLE_FILTERS.map((f) => [f, searched.filter((c) => matchesFilter(c, f, analyst.userId)).length])) as Record<ConsoleFilter, number>;
+    const counts = Object.fromEntries(
+      CONSOLE_FILTERS.map((f) => [f, searched.filter((c) => matchesFilter(c, f, analyst.userId)).length]),
+    ) as Record<ConsoleFilter, number>;
     // Quem espera um analista vem primeiro; depois, mais recentes.
     const items = searched
       .filter((c) => matchesFilter(c, filter, analyst.userId))
@@ -134,7 +141,9 @@ export class ConsoleService {
     // Assumir conta como atualização da TI no chamado (zera o prazo).
     if (conv.ticketId) {
       try {
-        await this.deps.tickets(analystActor({ id: analyst.userId, name: analyst.name })).updateStatus(conv.ticketId, 'em_andamento', `Atendimento assumido por ${analyst.name} via chat`);
+        await this.deps
+          .tickets(analystActor({ id: analyst.userId, name: analyst.name }))
+          .updateStatus(conv.ticketId, 'em_andamento', `Atendimento assumido por ${analyst.name} via chat`);
       } catch (err) {
         if (!(err instanceof TicketsUnavailableError)) console.error('[console] falha ao atualizar chamado', err);
       }
@@ -149,7 +158,13 @@ export class ConsoleService {
     }
     const clean = text.trim();
     if (!clean) throw new ServiceError(400, 'Escreva uma mensagem');
-    return this.deps.store.addMessage({ conversationId: id, role: 'analyst', authorId: analyst.userId, authorName: analyst.name, text: clean.slice(0, 4000) });
+    return this.deps.store.addMessage({
+      conversationId: id,
+      role: 'analyst',
+      authorId: analyst.userId,
+      authorName: analyst.name,
+      text: clean.slice(0, 4000),
+    });
   }
 
   returnToAgent(analyst: SessionRecord, id: string) {
@@ -158,7 +173,14 @@ export class ConsoleService {
     if (conv.status === 'com_analista' && conv.assignedAnalystId !== analyst.userId) {
       throw new ServiceError(409, 'Só quem está atendendo pode devolver a conversa');
     }
-    this.deps.store.updateConversation(id, { status: 'agent', assignedAnalystId: null, assignedAnalystName: null, handoff: null, unreadForAnalyst: 0, lastConfidence: null });
+    this.deps.store.updateConversation(id, {
+      status: 'agent',
+      assignedAnalystId: null,
+      assignedAnalystName: null,
+      handoff: null,
+      unreadForAnalyst: 0,
+      lastConfidence: null,
+    });
     return this.deps.store.addMessage({ conversationId: id, role: 'system', text: `${analyst.name} devolveu a conversa ao Nexo Assist` });
   }
 
@@ -167,13 +189,23 @@ export class ConsoleService {
     if (conv.status === 'com_analista' && conv.assignedAnalystId !== analyst.userId) {
       throw new ServiceError(409, 'Só quem está atendendo pode encerrar a conversa');
     }
-    this.deps.store.updateConversation(id, { status: 'encerrada', unreadForAnalyst: 0, assignedAnalystId: analyst.userId, assignedAnalystName: analyst.name });
+    this.deps.store.updateConversation(id, {
+      status: 'encerrada',
+      unreadForAnalyst: 0,
+      assignedAnalystId: analyst.userId,
+      assignedAnalystName: analyst.name,
+    });
     return this.deps.store.addMessage({ conversationId: id, role: 'system', text: `Atendimento encerrado por ${analyst.name}` });
   }
 
-  async employeeTickets(analyst: SessionRecord, employeeId: string): Promise<{ open: TicketView[]; closed: TicketView[]; available: boolean }> {
+  async employeeTickets(
+    analyst: SessionRecord,
+    employeeId: string,
+  ): Promise<{ open: TicketView[]; closed: TicketView[]; available: boolean }> {
     try {
-      const all = await this.deps.tickets(analystActor({ id: analyst.userId, name: analyst.name })).listTickets({ requesterId: employeeId, scope: 'all' });
+      const all = await this.deps
+        .tickets(analystActor({ id: analyst.userId, name: analyst.name }))
+        .listTickets({ requesterId: employeeId, scope: 'all' });
       const now = this.deps.clock();
       return {
         open: all.filter((t) => isOpenStatus(t.status)).map((t) => toTicketView(t, now)),

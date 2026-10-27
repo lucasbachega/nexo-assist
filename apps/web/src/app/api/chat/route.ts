@@ -16,20 +16,25 @@ export const GET = handle(async () => {
 
 const SendSchema = z.object({ text: z.string() });
 
+async function parseRequest(req: Request) {
+  const session = await requireSession('funcionario');
+  const { text } = SendSchema.parse(await readJson(req));
+  return { session, text };
+}
+
 /**
  * Envia uma mensagem e devolve o turno do agent em Server-Sent Events:
  * passos (step_start/step_end), texto (text), cartões (block), decisão e o fim (done).
  * Se o cliente desconectar, o turno termina e é salvo mesmo assim.
  */
 export async function POST(req: Request) {
-  let session;
-  let text: string;
+  let parsed: Awaited<ReturnType<typeof parseRequest>>;
   try {
-    session = await requireSession('funcionario');
-    text = SendSchema.parse(await readJson(req)).text;
+    parsed = await parseRequest(req);
   } catch (err) {
     return errorResponse(err);
   }
+  const { session, text } = parsed;
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
