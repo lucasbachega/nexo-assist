@@ -12,6 +12,7 @@ export const config = {
   ticketsToken: process.env.TICKETS_SERVICE_TOKEN || '',
   maxMessagesPerSession: num(process.env.MAX_MESSAGES_PER_SESSION, 30),
   maxMessagesPerHour: num(process.env.MAX_MESSAGES_PER_HOUR, 60),
+  maxMessagesPerDayGlobal: num(process.env.MAX_MESSAGES_PER_DAY_GLOBAL, 0),
   sessionTtlHours: num(process.env.SESSION_TTL_HOURS, 12),
   secureCookies: process.env.NODE_ENV === 'production' && process.env.INSECURE_COOKIES !== 'true',
 };

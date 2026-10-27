@@ -10,7 +10,7 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=20.9"
+    "node": ">=22.9"
   },
   "scripts": {
     "dev": "concurrently -k -n tickets,web -c magenta,cyan \"npm run dev -w @nexo/tickets\" \"npm run dev -w @nexo/web\"",

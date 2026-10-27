@@ -1,0 +1,14 @@
+services:
+  nexo-assist:
+    build: .
+    ports:
+      - '3000:3000'
+    env_file: .env
+    environment:
+      TICKETS_SERVICE_URL: http://localhost:4000
+    volumes:
+      - nexo-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  nexo-data:

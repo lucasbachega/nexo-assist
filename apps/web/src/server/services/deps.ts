@@ -8,7 +8,8 @@ export interface ServiceDeps {
   /** Cria um cliente do serviço de chamados agindo como o ator informado. */
   tickets: (actor: TicketsActor) => TicketsClient;
   clock: () => Date;
-  limits: { perSession: number; perHour: number };
+  /** Limites de uso: por sessão, por pessoa/hora e global/dia (teto de custo do deploy). */
+  limits: { perSession: number; perHour: number; perDayGlobal?: number };
   model: { config: MastraModelConfig; label: string; missingKey: string | null };
 }
 

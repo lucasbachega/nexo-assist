@@ -96,6 +96,13 @@ export class ChatService {
       throw new ServiceError(429, 'Muitas mensagens na última hora. Aguarde alguns minutos ou ligue no ramal 4000.', 'limite_hora');
     }
 
+    if (limits.perDayGlobal) {
+      const dayAgo = new Date(clock().getTime() - 86_400_000).toISOString();
+      if (store.countAllUserMessagesSince(dayAgo) >= limits.perDayGlobal) {
+        throw new ServiceError(429, 'O assistente atingiu o limite de uso de hoje. Ligue no ramal 4000 para falar com o service desk.', 'limite_global');
+      }
+    }
+
     let conv = this.activeConversation(session);
     if (this.running.has(conv.id)) throw new ServiceError(409, 'Aguarde a resposta anterior terminar');
     this.running.add(conv.id);

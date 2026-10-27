@@ -299,6 +299,11 @@ export class AppStore {
     return r.n;
   }
 
+  countAllUserMessagesSince(sinceIso: string): number {
+    const r = this.db.prepare(`SELECT COUNT(*) AS n FROM messages WHERE role = 'user' AND created_at >= ?`).get(sinceIso) as { n: number };
+    return r.n;
+  }
+
   countUserMessagesSince(authorId: string, sinceIso: string): number {
     const r = this.db
       .prepare(`SELECT COUNT(*) AS n FROM messages WHERE author_id = ? AND role = 'user' AND created_at >= ?`)
