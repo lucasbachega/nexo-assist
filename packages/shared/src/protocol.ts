@@ -109,6 +109,8 @@ export interface TraceStep {
   attempts: number;
   /** Linhas legíveis com o que foi consultado/decidido. */
   details: string[];
+  /** Passos internos (ex.: registrar a decisão) aparecem só no detalhe, não nos rótulos. */
+  silent: boolean;
 }
 
 export interface TurnTrace {
