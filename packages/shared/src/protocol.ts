@@ -44,7 +44,7 @@ export interface DraftPayload {
   comment: string | null;
 }
 
-export type DraftStatus = 'pendente' | 'confirmado' | 'cancelado' | 'falhou';
+export type DraftStatus = 'pendente' | 'processando' | 'confirmado' | 'cancelado' | 'falhou';
 
 export interface DraftView {
   id: string;
@@ -123,6 +123,8 @@ export interface TurnTrace {
   latencyMs: number;
   /** true quando a decisão foi inferida pelo sistema porque o modelo não a registrou. */
   decisionInferred: boolean;
+  /** true quando o turno falhou (ex.: provedor do modelo fora do ar). */
+  failed?: boolean;
 }
 
 /* ------------------------------------------------------------------------- */

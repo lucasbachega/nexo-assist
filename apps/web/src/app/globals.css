@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+
+  --color-ink: #121a24;
+  --color-ink-soft: #3b4654;
+  --color-muted: #6b7380;
+  --color-faint: #9aa1ab;
+  --color-line: #e4e7ec;
+  --color-line-soft: #eef0f3;
+  --color-canvas: #ffffff;
+  --color-subtle: #f6f7f9;
+  --color-console: #eef1f5;
+
+  --color-navy: #1d2733;
+  --color-navy-2: #26313e;
+
+  --color-brand: #0a66c9;
+  --color-brand-strong: #0858ae;
+  --color-brand-soft: #eaf2fd;
+  --color-brand-line: #c9dcf6;
+
+  --color-amber: #e8a317;
+  --color-amber-ink: #8a5a00;
+  --color-amber-soft: #fdf4e1;
+  --color-green: #18a058;
+  --color-green-ink: #11703f;
+  --color-green-soft: #e7f5ec;
+  --color-red: #d6362a;
+  --color-red-soft: #fdecea;
+  --color-blue: #1677ff;
+  --color-violet: #6d5bd0;
+  --color-violet-soft: #efecfb;
+
+  --color-agent-bubble: #e9f1fc;
+  --color-analyst-bubble: #e7f5ec;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 14px rgb(16 24 40 / 0.06);
+
+  --animate-fade-up: fade-up 220ms ease-out both;
+  --animate-blink: blink 1.2s ease-in-out infinite;
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d5d9df transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
