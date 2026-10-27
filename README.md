@@ -4,10 +4,10 @@ O funcionário descreve o problema num chat e o **Nexo Assist** decide o que faz
 
 ![Transparência das decisões](docs/screenshots/04-transparencia.png)
 
-| Funcionário | Analista |
-|---|---|
-| ![Consulta de chamado](docs/screenshots/02-consulta-chamado.png) | ![Console: conversa transferida](docs/screenshots/05-console-transferida.png) |
-| ![Rascunho para confirmação](docs/screenshots/03-abertura-rascunho.png) | ![Console: analista atendendo](docs/screenshots/06-console-atendendo.png) |
+| Funcionário                                                             | Analista                                                                      |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| ![Consulta de chamado](docs/screenshots/02-consulta-chamado.png)        | ![Console: conversa transferida](docs/screenshots/05-console-transferida.png) |
+| ![Rascunho para confirmação](docs/screenshots/03-abertura-rascunho.png) | ![Console: analista atendendo](docs/screenshots/06-console-atendendo.png)     |
 
 ---
 
@@ -39,29 +39,39 @@ npm run dev                   # sobe o serviço de chamados (:4000) e o app (:30
 
 Abra **http://localhost:3000**. O login aceita os funcionários dos dados de exemplo com **qualquer senha** — a própria tela de login tem atalhos:
 
-| Conta | Perfil | Para testar |
-|---|---|---|
-| `ana.souza@nexo.com.br` | Funcionária · Windows 11 | chamado vencido (INC-20311), VPN erro 809 (artigo não se aplica), SAP resolvido há 4 dias (reabrir) |
-| `carla.mendes@nexo.com.br` | Funcionária · Windows 10 | VPN erro 809 (artigo se aplica), chamados de outra pessoa (privacidade) |
-| `bruno.tavares@nexo.com.br` | Funcionário · macOS | |
-| `rafael.lima@nexo.com.br` | Analista · Suporte N2 | console do analista |
-| `juliana.costa@nexo.com.br` | Analista · Suporte N1 | console do analista |
+| Conta                       | Perfil                   | Para testar                                                                                         |
+| --------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `ana.souza@nexo.com.br`     | Funcionária · Windows 11 | chamado vencido (INC-20311), VPN erro 809 (artigo não se aplica), SAP resolvido há 4 dias (reabrir) |
+| `carla.mendes@nexo.com.br`  | Funcionária · Windows 10 | VPN erro 809 (artigo se aplica), chamados de outra pessoa (privacidade)                             |
+| `bruno.tavares@nexo.com.br` | Funcionário · macOS      |                                                                                                     |
+| `rafael.lima@nexo.com.br`   | Analista · Suporte N2    | console do analista                                                                                 |
+| `juliana.costa@nexo.com.br` | Analista · Suporte N1    | console do analista                                                                                 |
 
 Abra o funcionário e o analista em janelas diferentes (ou uma anônima) para ver a transferência acontecendo dos dois lados.
 
 ### Comandos
 
-| Comando | O que faz |
-|---|---|
-| `npm run dev` | Desenvolvimento (serviço de chamados + app, com reload) |
-| `npm run build && npm start` | Produção local |
-| `npm test` | Testes (regras, serviço de chamados, agent de ponta a ponta, serviços do app) — não precisam de chave |
-| `npm run eval` | Avaliação das decisões com o **modelo real** (13 cenários; precisa da chave) |
-| `npm run typecheck` | TypeScript estrito em todos os pacotes |
-| `npm run reset` | Apaga os bancos e recria os dados de exemplo |
-| `docker compose up --build` | Sobe tudo num contêiner com volume para os dados |
+| Comando                           | O que faz                                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `npm run dev`                     | Desenvolvimento (serviço de chamados + app, com reload)                                               |
+| `npm run build && npm start`      | Produção local                                                                                        |
+| `npm test`                        | Testes (regras, serviço de chamados, agent de ponta a ponta, serviços do app) — não precisam de chave |
+| `npm run eval`                    | Avaliação das decisões com o **modelo real** (13 cenários; precisa da chave)                          |
+| `npm run typecheck`               | TypeScript estrito em todos os pacotes                                                                |
+| `npm run lint` / `npm run format` | ESLint (TypeScript, regras do React 19 e do Next) e Prettier                                          |
+| `npm run check`                   | Typecheck + lint + testes — o que um CI rodaria                                                       |
+| `npm run reset`                   | Apaga os bancos e recria os dados de exemplo                                                          |
+| `docker compose up --build`       | Sobe tudo num contêiner com volume para os dados                                                      |
 
 > Os dados de exemplo usam datas **relativas ao dia do primeiro start** (ex.: INC-20311 "sem atualização há 6 dias"), para que os cenários de prazo vencido e reabertura funcionem em qualquer dia. Use `npm run reset` para recriá-los.
+
+### Problemas comuns
+
+| Sintoma                                                          | Causa provável                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "O assistente ainda não está configurado"                        | Falta `ANTHROPIC_API_KEY` no `.env` (reinicie o `npm run dev` depois de preencher).                                                                                                                                                                                      |
+| "O assistente está indisponível por um problema de configuração" | O provedor recusou a chave: chave inválida, sem crédito ou sem permissão. O motivo exato aparece em **Por quê?** na própria mensagem. Chaves de API começam com `sk-ant-api03-`; crédito e limite de gastos ficam em [platform.claude.com](https://platform.claude.com). |
+| Erro ao instalar `better-sqlite3`                                | Use Node 22 (`nvm use`) e rode `npm install` de novo.                                                                                                                                                                                                                    |
 
 ---
 
@@ -114,9 +124,9 @@ nexo-assist/
 
 **Por que assim:**
 
-- **Três camadas separadas, como pede o PRD.** A interface não fala com o modelo nem com o sistema de chamados; o agent não conhece banco nem HTTP de entrada (recebe *portas* injetadas); o serviço de chamados é um **processo separado** com API própria, como seria o legado real.
-- **Regras de negócio em código, não no prompt.** Prioridade, prazo em horário útil, duplicidade, reabertura em 7 dias e privacidade ficam em `packages/shared` e no serviço de chamados — determinísticos e testados. O modelo extrai fatos da conversa; o código decide. Isso é o que torna as decisões consistentes *e* explicáveis.
-- **Confirmar é uma ação do sistema, não do modelo.** O agent só *monta rascunhos*. Quem cria/atualiza o chamado é o botão **Confirmar** (ou uma confirmação por texto validada por código). Não existe ferramenta que o modelo possa chamar para criar um chamado sem confirmação.
+- **Três camadas separadas, como pede o PRD.** A interface não fala com o modelo nem com o sistema de chamados; o agent não conhece banco nem HTTP de entrada (recebe _portas_ injetadas); o serviço de chamados é um **processo separado** com API própria, como seria o legado real.
+- **Regras de negócio em código, não no prompt.** Prioridade, prazo em horário útil, duplicidade, reabertura em 7 dias e privacidade ficam em `packages/shared` e no serviço de chamados — determinísticos e testados. O modelo extrai fatos da conversa; o código decide. Isso é o que torna as decisões consistentes _e_ explicáveis.
+- **Confirmar é uma ação do sistema, não do modelo.** O agent só _monta rascunhos_. Quem cria/atualiza o chamado é o botão **Confirmar** (ou uma confirmação por texto validada por código). Não existe ferramenta que o modelo possa chamar para criar um chamado sem confirmação.
 - **Cada serviço é dono dos seus dados.** `app.db` (conversas) e `tickets.db` (chamados) são bancos diferentes; o app nunca lê o banco de chamados diretamente.
 - **TypeScript estrito** (`strict`, `noUncheckedIndexedAccess`) em todo o monorepo, com npm workspaces e pacotes consumidos como fonte TS.
 
@@ -134,43 +144,43 @@ Um turno (`packages/agent/src/run-turn.ts`):
 
 ### Ferramentas
 
-| Ferramenta | Quando o agent usa | O que o **código** garante |
-|---|---|---|
-| `buscar_central_ajuda` | Dúvidas e antes de abrir chamado | Busca por relevância; marca se o artigo **se aplica ao SO** do funcionário (ex.: erro 809 só no Windows 10) |
-| `listar_meus_chamados` | "Como está meu chamado?" sem número; checar duplicidade | Só os chamados do funcionário autenticado; prazo calculado |
-| `consultar_chamado` | Com número (ou após a escolha na lista) | Chamado de outra pessoa = "não encontrado" (nem a existência vaza); prazo/vencimento calculados |
-| `preparar_chamado` | Dados completos para um chamado novo | Duplicidade (aberto ou resolvido ≤ 7 dias) **bloqueia** o rascunho; **prioridade e prazo calculados pela matriz do Anexo A** a partir dos fatos informados |
-| `preparar_complemento` | Acrescentar informação ou reabrir | Aberto → complemento; resolvido ≤ 7 dias → reabertura; mais antigo → recusa |
-| `confirmar_rascunho` | Funcionário confirmou por texto | Só executa se a última mensagem for uma confirmação clara (regex de afirmação sem negação) |
-| `transferir_para_analista` | Pedido, crítico, vencido ou sem segurança | Fila (N1/N2) e prazo para assumir definidos por regra; agent pausa |
-| `oferecer_opcoes` | Pergunta com respostas previsíveis | Botões de resposta rápida |
-| `registrar_decisao` | Uma vez por turno, antes da resposta | Entendimento, intenção, ação, confiança e porquê — vira o painel de transparência |
+| Ferramenta                 | Quando o agent usa                                      | O que o **código** garante                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `buscar_central_ajuda`     | Dúvidas e antes de abrir chamado                        | Busca por relevância; marca se o artigo **se aplica ao SO** do funcionário (ex.: erro 809 só no Windows 10)                                                |
+| `listar_meus_chamados`     | "Como está meu chamado?" sem número; checar duplicidade | Só os chamados do funcionário autenticado; prazo calculado                                                                                                 |
+| `consultar_chamado`        | Com número (ou após a escolha na lista)                 | Chamado de outra pessoa = "não encontrado" (nem a existência vaza); prazo/vencimento calculados                                                            |
+| `preparar_chamado`         | Dados completos para um chamado novo                    | Duplicidade (aberto ou resolvido ≤ 7 dias) **bloqueia** o rascunho; **prioridade e prazo calculados pela matriz do Anexo A** a partir dos fatos informados |
+| `preparar_complemento`     | Acrescentar informação ou reabrir                       | Aberto → complemento; resolvido ≤ 7 dias → reabertura; mais antigo → recusa                                                                                |
+| `confirmar_rascunho`       | Funcionário confirmou por texto                         | Só executa se a última mensagem for uma confirmação clara (regex de afirmação sem negação)                                                                 |
+| `transferir_para_analista` | Pedido, crítico, vencido ou sem segurança               | Fila (N1/N2) e prazo para assumir definidos por regra; agent pausa                                                                                         |
+| `oferecer_opcoes`          | Pergunta com respostas previsíveis                      | Botões de resposta rápida                                                                                                                                  |
+| `registrar_decisao`        | Uma vez por turno, antes da resposta                    | Entendimento, intenção, ação, confiança e porquê — vira o painel de transparência                                                                          |
 
 ### Regras do Anexo A, onde estão
 
-| Regra | Implementação |
-|---|---|
-| Prioridade = impacto × urgência | `classifyPriority` em `packages/shared/src/priority.ts` (o modelo informa *quem é afetado / está parado / há alternativa / compromisso hoje*) |
-| Prazos (1 h corrida; 4 h, 3 e 5 dias **úteis**) | `packages/shared/src/sla.ts` — seg–sex 8h–18h em America/Sao_Paulo, prazo vale para a primeira resposta e cada atualização da TI |
-| Sem duplicidade / reabrir até 7 dias | `packages/shared/src/dedupe.ts` + `preparar_chamado` / `preparar_complemento` |
-| Rascunho e confirmação antes de criar/atualizar | `DraftService` (`apps/web/src/server/services/drafts.ts`); criação idempotente por rascunho |
-| Transferência com resumo; agent não responde com analista | `HandoffService` + `ChatService.send` (mensagens ficam na fila do analista, o modelo nem é chamado) |
-| Crítico vai para analista | Ao confirmar um rascunho **crítico**, o sistema transfere para o Suporte N2 automaticamente |
-| Privacidade | Serviço de chamados filtra por ator; identidade vem da sessão, nunca do modelo |
-| Escopo só TI | Instruções do agent (RH, financeiro e facilities são redirecionados) |
+| Regra                                                     | Implementação                                                                                                                                 |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Prioridade = impacto × urgência                           | `classifyPriority` em `packages/shared/src/priority.ts` (o modelo informa _quem é afetado / está parado / há alternativa / compromisso hoje_) |
+| Prazos (1 h corrida; 4 h, 3 e 5 dias **úteis**)           | `packages/shared/src/sla.ts` — seg–sex 8h–18h em America/Sao_Paulo, prazo vale para a primeira resposta e cada atualização da TI              |
+| Sem duplicidade / reabrir até 7 dias                      | `packages/shared/src/dedupe.ts` + `preparar_chamado` / `preparar_complemento`                                                                 |
+| Rascunho e confirmação antes de criar/atualizar           | `DraftService` (`apps/web/src/server/services/drafts.ts`); criação idempotente por rascunho                                                   |
+| Transferência com resumo; agent não responde com analista | `HandoffService` + `ChatService.send` (mensagens ficam na fila do analista, o modelo nem é chamado)                                           |
+| Crítico vai para analista                                 | Ao confirmar um rascunho **crítico**, o sistema transfere para o Suporte N2 automaticamente                                                   |
+| Privacidade                                               | Serviço de chamados filtra por ator; identidade vem da sessão, nunca do modelo; o login usa um ator de sistema que só acessa o diretório      |
+| Escopo só TI                                              | Instruções do agent (RH, financeiro e facilities são redirecionados)                                                                          |
 
 ---
 
 ## Transparência: ver o que o agent fez e por quê
 
-*É a parte mais importante do desafio, então ela existe em três níveis:*
+_É a parte mais importante do desafio, então ela existe em três níveis:_
 
 1. **Rótulos acima de cada resposta**, em tempo real enquanto o agent trabalha: `✓ buscou na central de ajuda ✓ consultou seus chamados ✓ classificou a prioridade`. Passos com erro aparecem em vermelho.
 2. **"Por quê?"** expande o painel **Como o Nexo decidiu**: intenção, **confiança** (barra colorida), o que entendeu, a ação, o porquê citando regras e dados, o que ainda falta saber, e cada passo com detalhes legíveis — por exemplo:
-   - *Regra aplicada: Compromisso no mesmo dia em risco → Alta*
-   - *Prioridade Alta: primeira resposta em 4 horas úteis · Se criado agora, resposta até 15:19*
-   - *Tentativa 1 falhou (Sistema de chamados temporariamente indisponível); tentando de novo* (com o selo "2 tentativas")
-   - *Regras aplicadas pelo sistema*: o que o código fez por cima do modelo (transferência por confiança baixa, decisão inferida).
+   - _Regra aplicada: Compromisso no mesmo dia em risco → Alta_
+   - _Prioridade Alta: primeira resposta em 4 horas úteis · Se criado agora, resposta até 15:19_
+   - _Tentativa 1 falhou (Sistema de chamados temporariamente indisponível); tentando de novo_ (com o selo "2 tentativas")
+   - _Regras aplicadas pelo sistema_: o que o código fez por cima do modelo (transferência por confiança baixa, decisão inferida).
    - Rodapé: modelo, tokens de entrada/saída e tempo do turno.
 3. **No console**, cada mensagem do agent tem "ver decisão" com o mesmo painel, e a transferência chega com o **resumo do caso**, o motivo (pedido, crítico, vencido, agent sem segurança) e a confiança.
 
@@ -183,13 +193,13 @@ Ações do sistema (confirmar, cancelar) também geram trilha, deixando claro qu
 Três camadas de verificação, das regras ao comportamento real:
 
 1. **Regras determinísticas com testes unitários** (`packages/shared/test`): matriz de prioridade, prazos em horário útil (atravessando expediente e fim de semana; o caso 09:43 → 13:43 do protótipo), status vencido/pausado, duplicidade com palavras diferentes, janela de reabertura.
-2. **Agent de ponta a ponta sem LLM** (`packages/agent/test`): um **modelo roteirizado** substitui o provedor e o loop real do Mastra executa as ferramentas reais contra o serviço de chamados em memória. Verifica a sequência de passos, o rascunho com prioridade Alta, que **nada é criado sem confirmação**, privacidade, bloqueio de duplicidade, guardrail de confiança e a trava da confirmação por texto. O mesmo truque testa os serviços do app (`apps/web/src/server/services/services.test.ts`): confirmação idempotente (duplo clique), transferência que **pausa o agent** (o modelo não é chamado), console assumir/responder/devolver, limite de 30 mensagens e **persistência após reinício**.
+2. **Agent de ponta a ponta sem LLM** (`packages/agent/test`): um **modelo roteirizado** substitui o provedor e o loop real do Mastra executa as ferramentas reais contra o serviço de chamados em memória. Verifica a sequência de passos, o rascunho com prioridade Alta, que **nada é criado sem confirmação**, privacidade, bloqueio de duplicidade, guardrail de confiança e a trava da confirmação por texto. O mesmo truque testa os serviços do app (`apps/web/test/services.test.ts`): confirmação idempotente (duplo clique), transferência que **pausa o agent** (o modelo não é chamado), console assumir/responder/devolver, limite de 30 mensagens e **persistência após reinício**.
 3. **Avaliação com o modelo real** (`npm run eval`, `packages/agent/evals/run.ts`): 13 cenários do PRD (dúvida, status sem número, vencido, VPN Windows 10 × 11, rascunho com prioridade, duplicidade, privacidade, pedido de analista, crítico, fora do escopo, complemento, reabertura). As verificações olham **decisões** (ferramenta usada, cartão exibido, prioridade, transferência, não vazar dados), não o texto exato. `--repeat N` mede estabilidade; os resultados ficam em `packages/agent/evals/results/`.
 
 Além disso, os testes do serviço de chamados cobrem autorização por ator, idempotência e o cliente resiliente (retries em 503 e desistência com erro claro).
 
 ```bash
-npm test        # 42 testes, ~3 s, sem chave
+npm test        # 45 testes, ~3 s, sem chave
 npm run eval    # cenários com o modelo real
 ```
 
@@ -213,7 +223,7 @@ O que controla o custo por conversa:
 ## Segurança, privacidade e resiliência
 
 - **Chaves fora do código**: `.env` (ignorado pelo git) e `.env.example` documentado. O serviço de chamados exige um token de serviço; só a porta do app é exposta no Docker.
-- **Chamados de um funcionário nunca expostos a outro**: a identidade vem da sessão (cookie `httpOnly`, `sameSite=lax`, `secure` em produção, sessão no banco com expiração) e é injetada nas ferramentas — o modelo não escolhe de quem é o chamado. O serviço de chamados responde **404** para chamado alheio. Rascunhos e conversas também checam o dono. Há testes para cada caso.
+- **Chamados de um funcionário nunca expostos a outro**: a identidade vem da sessão (cookie `httpOnly`, `sameSite=lax`, `secure` em produção, sessão no banco com expiração) e é injetada nas ferramentas — o modelo não escolhe de quem é o chamado. O serviço de chamados responde **404** para chamado alheio, e funcionários não podem buscar outras pessoas no diretório (o login usa um ator `sistema`, restrito ao diretório). Rascunhos e conversas também checam o dono. Há testes para cada caso.
 - **Legado instável**: o serviço simula 10% de `503` e latência variável (`TICKETS_FLAKY_RATE`). O cliente usa timeout por tentativa, backoff exponencial com jitter e repete `503` sempre (o legado recusou antes de processar); timeout/erro de rede só é repetido em operações idempotentes. Criações e complementos usam `Idempotency-Key` (o id do rascunho), então um retry nunca duplica chamado. Se tudo falhar, o agent explica e o rascunho continua salvo com "Tentar de novo".
 - **Concorrência**: um turno por conversa por vez; confirmação com trava otimista no banco (duplo clique não cria dois chamados).
 - **Entrada**: validação com zod em todas as rotas, limite de tamanho de mensagem, rate limit no login.
@@ -222,24 +232,24 @@ O que controla o custo por conversa:
 
 ## Principais trade-offs
 
-| Decisão | Ganho | Custo / limitação |
-|---|---|---|
-| Regras em código, modelo só extrai fatos | Consistência, testabilidade, explicabilidade | Menos flexível para casos fora da matriz (ex.: VIP) — exigiria regra nova |
-| Agent Mastra criado por turno, histórico próprio em SQLite (sem Mastra Memory) | Uma única fonte da verdade para chat, console e trilha; controle total da janela de contexto | Não aproveita recursos de memória semântica do Mastra |
-| Decisão registrada por ferramenta (`registrar_decisao`) | Sem chamada extra ao modelo; decisão no mesmo turno | O modelo pode esquecer — mitigado com decisão inferida e aviso no painel |
-| SQLite (WAL) nos dois serviços | Zero infraestrutura, sobrevive a reinício, rápido | Um processo por banco; para escalar horizontalmente, trocar por Postgres (a SQL está isolada em `AppStore` e `TicketRepository`) |
-| Polling (2,5–5 s) para mensagens de analista e console | Simples e robusto atrás de qualquer proxy | Menos imediato que WebSocket/SSE persistente |
-| Trava de turno em memória | Simples | Com várias instâncias, precisaria de lock distribuído (Redis/advisory lock) |
-| Busca da central por palavras (IDF) | Determinística e explicável, sem embeddings | Sinônimos distantes podem escapar — o agent reformula a busca |
-| Horário útil com UTC−3 fixo, sem feriados | Contas determinísticas | Feriados não são considerados |
-| Login com qualquer senha (pedido do PRD) | Facilita a avaliação | Em produção entraria SSO (OIDC/SAML) no `AuthService` |
+| Decisão                                                                        | Ganho                                                                                        | Custo / limitação                                                                                                                |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Regras em código, modelo só extrai fatos                                       | Consistência, testabilidade, explicabilidade                                                 | Menos flexível para casos fora da matriz (ex.: VIP) — exigiria regra nova                                                        |
+| Agent Mastra criado por turno, histórico próprio em SQLite (sem Mastra Memory) | Uma única fonte da verdade para chat, console e trilha; controle total da janela de contexto | Não aproveita recursos de memória semântica do Mastra                                                                            |
+| Decisão registrada por ferramenta (`registrar_decisao`)                        | Sem chamada extra ao modelo; decisão no mesmo turno                                          | O modelo pode esquecer — mitigado com decisão inferida e aviso no painel                                                         |
+| SQLite (WAL) nos dois serviços                                                 | Zero infraestrutura, sobrevive a reinício, rápido                                            | Um processo por banco; para escalar horizontalmente, trocar por Postgres (a SQL está isolada em `AppStore` e `TicketRepository`) |
+| Polling (2,5–5 s) para mensagens de analista e console                         | Simples e robusto atrás de qualquer proxy                                                    | Menos imediato que WebSocket/SSE persistente                                                                                     |
+| Trava de turno em memória                                                      | Simples                                                                                      | Com várias instâncias, precisaria de lock distribuído (Redis/advisory lock)                                                      |
+| Busca da central por palavras (IDF)                                            | Determinística e explicável, sem embeddings                                                  | Sinônimos distantes podem escapar — o agent reformula a busca                                                                    |
+| Horário útil com UTC−3 fixo, sem feriados                                      | Contas determinísticas                                                                       | Feriados não são considerados                                                                                                    |
+| Login com qualquer senha (pedido do PRD)                                       | Facilita a avaliação                                                                         | Em produção entraria SSO (OIDC/SAML) no `AuthService`                                                                            |
 
 ---
 
 ## O que eu faria com mais tempo
 
 - **Eval contínuo no CI** com o modelo real (amostragem), juiz LLM para a qualidade do texto e um conjunto maior de conversas reais anonimizadas; dashboard de taxa de resolução sem fila, duplicidade evitada e transferências por motivo.
-- **Busca híbrida na central** (BM25 + embeddings) e feedback "isso resolveu?" para medir *resolução sem fila*.
+- **Busca híbrida na central** (BM25 + embeddings) e feedback "isso resolveu?" para medir _resolução sem fila_.
 - **SSE/WebSocket** para analista e funcionário, notificações e indicador de digitação.
 - **Postgres + fila** (para retries do legado fora da requisição) e lock distribuído para várias instâncias.
 - **SSO corporativo**, auditoria das ações dos analistas e retenção/anonimização de conversas (LGPD).
@@ -256,7 +266,7 @@ O projeto inclui `Dockerfile` e `docker-compose.yml` (uma imagem com os dois pro
 docker compose up --build
 ```
 
-Em plataformas como **Railway**, **Fly.io** ou **Render**: use o `Dockerfile`, monte um volume em `/app/data`, configure as variáveis do `.env.example` como *secrets* (nunca no repositório) e ajuste os limites de custo:
+Em plataformas como **Railway**, **Fly.io** ou **Render**: use o `Dockerfile`, monte um volume em `/app/data`, configure as variáveis do `.env.example` como _secrets_ (nunca no repositório) e ajuste os limites de custo:
 
 ```env
 MAX_MESSAGES_PER_SESSION=30
@@ -271,18 +281,18 @@ Defina também um limite de gastos no console do provedor do modelo.
 
 ## Onde cada requisito do PRD está
 
-| Requisito | Onde |
-|---|---|
-| Login com e-mail corporativo, qualquer senha (Tela 1) | `apps/web/src/components/shell/LoginScreen.tsx`, `server/services/auth.ts` |
-| Chat em tempo real, cards, seleção, rascunho, opções rápidas, limite de 30 (Telas 2 e 3) | `components/chat/*`, `components/blocks/*`, `app/api/chat/route.ts` (SSE) |
-| Agent que decide a cada mensagem, seguindo o Anexo A | `packages/agent/src/*`, `packages/shared/src/*` |
-| Serviço de chamados simulado, separado (consultar, criar, atualizar, transferir) | `services/tickets` |
-| Transferência: aguardando atendente, agent para de responder | `server/services/handoff.ts`, `server/services/chat.ts` |
-| Console: lista com filtros e status, histórico, assumir (agent pausado), devolver, encerrar, chamados do funcionário (Telas 4 e 5) | `components/console/*`, `server/services/console.ts` |
-| Visibilidade das decisões | `components/decision/*`, `packages/agent/src/tracer.ts` |
-| Persistência após reinício | SQLite em `data/` (`app.db`, `tickets.db`); teste em `services.test.ts` |
-| Voltar outro dia e continuar | A conversa aberta mais recente é retomada com o histórico |
-| TypeScript estrito, Mastra, poucos comandos, `.env.example` | `tsconfig.base.json`, `packages/agent`, `package.json`, `.env.example` |
+| Requisito                                                                                                                          | Onde                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Login com e-mail corporativo, qualquer senha (Tela 1)                                                                              | `apps/web/src/components/shell/LoginScreen.tsx`, `server/services/auth.ts` |
+| Chat em tempo real, cards, seleção, rascunho, opções rápidas, limite de 30 (Telas 2 e 3)                                           | `components/chat/*`, `components/blocks/*`, `app/api/chat/route.ts` (SSE)  |
+| Agent que decide a cada mensagem, seguindo o Anexo A                                                                               | `packages/agent/src/*`, `packages/shared/src/*`                            |
+| Serviço de chamados simulado, separado (consultar, criar, atualizar, transferir)                                                   | `services/tickets`                                                         |
+| Transferência: aguardando atendente, agent para de responder                                                                       | `server/services/handoff.ts`, `server/services/chat.ts`                    |
+| Console: lista com filtros e status, histórico, assumir (agent pausado), devolver, encerrar, chamados do funcionário (Telas 4 e 5) | `components/console/*`, `server/services/console.ts`                       |
+| Visibilidade das decisões                                                                                                          | `components/decision/*`, `packages/agent/src/tracer.ts`                    |
+| Persistência após reinício                                                                                                         | SQLite em `data/` (`app.db`, `tickets.db`); teste em `services.test.ts`    |
+| Voltar outro dia e continuar                                                                                                       | A conversa aberta mais recente é retomada com o histórico                  |
+| TypeScript estrito, Mastra, poucos comandos, `.env.example`                                                                        | `tsconfig.base.json`, `packages/agent`, `package.json`, `.env.example`     |
 
 ### Dados de exemplo (Anexo B)
 
