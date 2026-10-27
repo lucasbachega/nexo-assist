@@ -23,7 +23,7 @@ export class AuthService {
   async login(input: Pick<z.infer<typeof LoginSchema>, 'email' | 'password'>): Promise<SessionRecord> {
     if (!input.email.endsWith('@nexo.com.br')) throw new ServiceError(401, 'Use seu e-mail corporativo @nexo.com.br');
     try {
-      const directory = this.deps.tickets({ id: 'nexo-assist-login', role: 'funcionario', name: null });
+      const directory = this.deps.tickets({ id: 'nexo-assist', role: 'sistema', name: null });
       const emp = await directory.findEmployeeByEmail(input.email);
       return this.deps.store.createSession(
         { userId: emp.id, role: emp.role, name: emp.name, email: emp.email, department: emp.department, team: emp.team },
@@ -31,7 +31,8 @@ export class AuthService {
       );
     } catch (err) {
       if (err instanceof TicketsApiError && err.status === 404) throw new ServiceError(401, 'E-mail não encontrado no diretório da Nexo');
-      if (err instanceof TicketsUnavailableError) throw new ServiceError(503, 'Não conseguimos validar seu acesso agora. Tente de novo em instantes.');
+      if (err instanceof TicketsUnavailableError)
+        throw new ServiceError(503, 'Não conseguimos validar seu acesso agora. Tente de novo em instantes.');
       throw err;
     }
   }

@@ -69,12 +69,8 @@ export class TicketRepository {
     return this.clock().toISOString();
   }
 
-  /* --------------------------------- diretório -------------------------------- */
-
   findEmployeeByEmail(email: string): Employee | null {
-    const row = this.db.prepare('SELECT * FROM employees WHERE email = ?').get(email.trim()) as
-      | Employee
-      | undefined;
+    const row = this.db.prepare('SELECT * FROM employees WHERE email = ?').get(email.trim()) as Employee | undefined;
     return row ?? null;
   }
 
@@ -85,8 +81,6 @@ export class TicketRepository {
   listEmployees(): Employee[] {
     return this.db.prepare('SELECT * FROM employees ORDER BY name').all() as Employee[];
   }
-
-  /* --------------------------------- chamados --------------------------------- */
 
   listTickets(filter: { requesterId?: string; scope: 'open' | 'all' }): Ticket[] {
     const where: string[] = [];
@@ -110,9 +104,7 @@ export class TicketRepository {
   }
 
   listEvents(ticketId: string): TicketEvent[] {
-    const rows = this.db
-      .prepare('SELECT * FROM ticket_events WHERE ticket_id = ? ORDER BY id')
-      .all(ticketId) as Array<{
+    const rows = this.db.prepare('SELECT * FROM ticket_events WHERE ticket_id = ? ORDER BY id').all(ticketId) as Array<{
       id: number;
       ticket_id: string;
       at: string;
@@ -133,19 +125,22 @@ export class TicketRepository {
   }
 
   private nextId(type: Ticket['type']): string {
-    const row = this.db.prepare('SELECT next_value FROM sequences WHERE type = ?').get(type) as
-      | { next_value: number }
-      | undefined;
+    const row = this.db.prepare('SELECT next_value FROM sequences WHERE type = ?').get(type) as { next_value: number } | undefined;
     const value = row?.next_value ?? (type === 'INC' ? 20500 : 10450);
     this.db
-      .prepare(
-        'INSERT INTO sequences (type, next_value) VALUES (?, ?) ON CONFLICT(type) DO UPDATE SET next_value = excluded.next_value',
-      )
+      .prepare('INSERT INTO sequences (type, next_value) VALUES (?, ?) ON CONFLICT(type) DO UPDATE SET next_value = excluded.next_value')
       .run(type, value + 1);
     return `${type}-${value}`;
   }
 
-  private addEvent(ticketId: string, author: EventAuthor, authorName: string | null, kind: TicketEvent['kind'], text: string, at = this.now()) {
+  private addEvent(
+    ticketId: string,
+    author: EventAuthor,
+    authorName: string | null,
+    kind: TicketEvent['kind'],
+    text: string,
+    at = this.now(),
+  ) {
     this.db
       .prepare('INSERT INTO ticket_events (ticket_id, at, author, author_name, kind, text) VALUES (?, ?, ?, ?, ?, ?)')
       .run(ticketId, at, author, authorName, kind, text);
@@ -154,20 +149,20 @@ export class TicketRepository {
   /** Retorna o chamado já criado por esta chave, se houver (retry seguro). */
   private byIdempotencyKey(key: string | null): Ticket | null {
     if (!key) return null;
-    const row = this.db.prepare('SELECT ticket_id FROM idempotency_keys WHERE key = ?').get(key) as
-      | { ticket_id: string }
-      | undefined;
+    const row = this.db.prepare('SELECT ticket_id FROM idempotency_keys WHERE key = ?').get(key) as { ticket_id: string } | undefined;
     return row ? this.getTicket(row.ticket_id) : null;
   }
 
   private remember(key: string | null, ticketId: string) {
     if (!key) return;
-    this.db
-      .prepare('INSERT OR IGNORE INTO idempotency_keys (key, ticket_id, created_at) VALUES (?, ?, ?)')
-      .run(key, ticketId, this.now());
+    this.db.prepare('INSERT OR IGNORE INTO idempotency_keys (key, ticket_id, created_at) VALUES (?, ?, ?)').run(key, ticketId, this.now());
   }
 
-  createTicket(input: CreateTicketInput, author: { kind: EventAuthor; name: string | null }, idempotencyKey: string | null): { ticket: Ticket; replayed: boolean } {
+  createTicket(
+    input: CreateTicketInput,
+    author: { kind: EventAuthor; name: string | null },
+    idempotencyKey: string | null,
+  ): { ticket: Ticket; replayed: boolean } {
     return this.db.transaction(() => {
       const existing = this.byIdempotencyKey(idempotencyKey);
       if (existing) return { ticket: existing, replayed: true };
@@ -179,7 +174,19 @@ export class TicketRepository {
              assigned_queue, assigned_to, created_at, updated_at, last_support_update_at, resolved_at)
            VALUES (?, ?, ?, ?, ?, ?, 'aberto', ?, ?, NULL, NULL, ?, ?, ?, NULL)`,
         )
-        .run(id, input.type, input.title, input.description, input.category, input.priority, input.affected, input.requesterId, now, now, now);
+        .run(
+          id,
+          input.type,
+          input.title,
+          input.description,
+          input.category,
+          input.priority,
+          input.affected,
+          input.requesterId,
+          now,
+          now,
+          now,
+        );
       this.addEvent(id, author.kind, author.name, 'criado', 'Chamado aberto', now);
       this.remember(idempotencyKey, id);
       return { ticket: this.getTicket(id) as Ticket, replayed: false };
@@ -195,8 +202,7 @@ export class TicketRepository {
       const now = this.now();
       const fromSupport = comment.author === 'analista';
       // Resposta do funcionário devolve o chamado para a TI.
-      const status: TicketStatus =
-        !fromSupport && ticket.status === 'aguardando_usuario' ? 'em_andamento' : ticket.status;
+      const status: TicketStatus = !fromSupport && ticket.status === 'aguardando_usuario' ? 'em_andamento' : ticket.status;
       this.db
         .prepare(
           `UPDATE tickets SET updated_at = ?, status = ?, last_support_update_at = CASE WHEN ? THEN ? ELSE last_support_update_at END WHERE id = ?`,
@@ -247,16 +253,12 @@ export class TicketRepository {
       const now = this.now();
       const resolvedAt = input.status === 'resolvido' ? now : null;
       this.db
-        .prepare(
-          `UPDATE tickets SET status = ?, assigned_to = ?, updated_at = ?, last_support_update_at = ?, resolved_at = ? WHERE id = ?`,
-        )
+        .prepare(`UPDATE tickets SET status = ?, assigned_to = ?, updated_at = ?, last_support_update_at = ?, resolved_at = ? WHERE id = ?`)
         .run(input.status, input.analystName, now, now, resolvedAt, ticket.id);
       this.addEvent(ticket.id, 'analista', input.analystName, 'status', input.note ?? `Status alterado para ${input.status}`, now);
       return this.getTicket(ticket.id) as Ticket;
     })();
   }
-
-  /* ----------------------------- central de ajuda ----------------------------- */
 
   listArticles(): KbArticle[] {
     const rows = this.db.prepare('SELECT * FROM kb_articles ORDER BY id').all() as Array<{

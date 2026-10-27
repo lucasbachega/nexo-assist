@@ -1,13 +1,4 @@
-import type {
-  CreateTicketInput,
-  Employee,
-  KbArticle,
-  KbSearchHit,
-  Role,
-  Ticket,
-  TicketEvent,
-  TicketStatus,
-} from '@nexo/shared';
+import type { CreateTicketInput, Employee, KbArticle, KbSearchHit, ActorRole, Ticket, TicketEvent, TicketStatus } from '@nexo/shared';
 
 /**
  * Cliente tipado do serviço de chamados, com resiliência para o legado instável:
@@ -20,7 +11,7 @@ import type {
 
 export interface TicketsActor {
   id: string;
-  role: Role;
+  role: ActorRole;
   name: string | null;
 }
 
@@ -85,11 +76,7 @@ export class TicketsClient {
     return new TicketsClient({ ...this.opts, onAttempt });
   }
 
-  private async request<T>(
-    method: 'GET' | 'POST',
-    path: string,
-    init: { body?: unknown; idempotencyKey?: string } = {},
-  ): Promise<T> {
+  private async request<T>(method: 'GET' | 'POST', path: string, init: { body?: unknown; idempotencyKey?: string } = {}): Promise<T> {
     const maxAttempts = this.opts.maxAttempts ?? 3;
     const baseDelay = this.opts.baseDelayMs ?? 250;
     const idempotent = method === 'GET' || Boolean(init.idempotencyKey);
@@ -145,8 +132,6 @@ export class TicketsClient {
     throw new TicketsUnavailableError(`Sistema de chamados indisponível (${lastError})`, maxAttempts);
   }
 
-  /* -------------------------------- diretório ------------------------------- */
-
   findEmployeeByEmail(email: string) {
     return this.request<Employee>('GET', `/directory/employees?email=${encodeURIComponent(email)}`);
   }
@@ -156,8 +141,6 @@ export class TicketsClient {
   listEmployees() {
     return this.request<Employee[]>('GET', '/directory/employees');
   }
-
-  /* --------------------------------- chamados -------------------------------- */
 
   listTickets(params: { requesterId?: string; scope?: 'open' | 'all' } = {}) {
     const q = new URLSearchParams();
@@ -183,8 +166,6 @@ export class TicketsClient {
   updateStatus(id: string, status: TicketStatus, note: string | null) {
     return this.request<Ticket>('POST', `/tickets/${encodeURIComponent(id)}/status`, { body: { status, note } });
   }
-
-  /* ----------------------------- central de ajuda ----------------------------- */
 
   searchKb(query: string, limit = 3) {
     return this.request<KbSearchHit[]>('GET', `/kb/search?q=${encodeURIComponent(query)}&limit=${limit}`);

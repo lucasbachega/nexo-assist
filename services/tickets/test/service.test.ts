@@ -14,8 +14,19 @@ function setup(opts: { flakyRate?: number; random?: () => number } = {}) {
   const repo = new TicketRepository(db, () => NOW);
   const app = createApp({ repo, serviceToken: TOKEN, ...opts });
   const fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init))) as typeof fetch;
-  const client = (actor: { id: string; role: 'funcionario' | 'analista'; name?: string }, onAttempt?: (a: AttemptInfo) => void) =>
-    new TicketsClient({ baseUrl: 'http://tickets.test', token: TOKEN, actor: { name: null, ...actor }, fetchImpl, baseDelayMs: 1, maxRetryAfterMs: 5, ...(onAttempt ? { onAttempt } : {}) });
+  const client = (
+    actor: { id: string; role: 'funcionario' | 'analista' | 'sistema'; name?: string },
+    onAttempt?: (a: AttemptInfo) => void,
+  ) =>
+    new TicketsClient({
+      baseUrl: 'http://tickets.test',
+      token: TOKEN,
+      actor: { name: null, ...actor },
+      fetchImpl,
+      baseDelayMs: 1,
+      maxRetryAfterMs: 5,
+      ...(onAttempt ? { onAttempt } : {}),
+    });
   return { app, repo, client };
 }
 
@@ -51,6 +62,18 @@ describe('serviço de chamados', () => {
       await expect(ana.addComment('REQ-10460', 'oi', 'k1')).rejects.toMatchObject({ status: 404 });
     });
 
+    it('funcionário não busca outras pessoas no diretório pelo e-mail', async () => {
+      const ana = env.client({ id: 'emp-ana', role: 'funcionario' });
+      await expect(ana.findEmployeeByEmail('carla.mendes@nexo.com.br')).rejects.toMatchObject({ status: 403 });
+      await expect(ana.getEmployee('emp-carla')).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('ator de sistema (login) só acessa o diretório', async () => {
+      const sistema = env.client({ id: 'nexo-assist', role: 'sistema' });
+      expect((await sistema.findEmployeeByEmail('ana.souza@nexo.com.br')).id).toBe('emp-ana');
+      await expect(sistema.listTickets()).rejects.toMatchObject({ status: 403 });
+    });
+
     it('analista enxerga chamados de qualquer funcionário', async () => {
       const rafael = env.client({ id: 'ana-rafael', role: 'analista' });
       const { ticket } = await rafael.getTicket('REQ-10460');
@@ -60,7 +83,15 @@ describe('serviço de chamados', () => {
 
   it('cria chamado sempre em nome do funcionário autenticado e de forma idempotente', async () => {
     const ana = env.client({ id: 'emp-ana', role: 'funcionario' });
-    const input = { type: 'INC' as const, title: 'VPN não conecta — erro 809', description: 'Desde ontem a VPN mostra erro 809.', category: 'Rede e VPN' as const, priority: 'alta' as const, affected: 'somente_voce' as const, requesterId: 'emp-carla' };
+    const input = {
+      type: 'INC' as const,
+      title: 'VPN não conecta — erro 809',
+      description: 'Desde ontem a VPN mostra erro 809.',
+      category: 'Rede e VPN' as const,
+      priority: 'alta' as const,
+      affected: 'somente_voce' as const,
+      requesterId: 'emp-carla',
+    };
     const a = await ana.createTicket(input, 'draft-D-1');
     const b = await ana.createTicket(input, 'draft-D-1');
     expect(a.id).toBe('INC-20520');

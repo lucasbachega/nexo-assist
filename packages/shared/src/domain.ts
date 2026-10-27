@@ -64,21 +64,10 @@ export const STATUS_LABEL: Record<TicketStatus, string> = {
 };
 
 /** Status em que o chamado ainda está "aberto" para fins de duplicidade e listagem. */
-export const OPEN_STATUSES: readonly TicketStatus[] = [
-  'aberto',
-  'em_andamento',
-  'aguardando_analista',
-  'aguardando_usuario',
-  'aprovado',
-];
+export const OPEN_STATUSES: readonly TicketStatus[] = ['aberto', 'em_andamento', 'aguardando_analista', 'aguardando_usuario', 'aprovado'];
 
 /** Status em que a bola está com a TI — só nesses o prazo (SLA) corre. */
-export const SLA_RUNNING_STATUSES: readonly TicketStatus[] = [
-  'aberto',
-  'em_andamento',
-  'aguardando_analista',
-  'aprovado',
-];
+export const SLA_RUNNING_STATUSES: readonly TicketStatus[] = ['aberto', 'em_andamento', 'aguardando_analista', 'aprovado'];
 
 export function isOpenStatus(status: TicketStatus): boolean {
   return OPEN_STATUSES.includes(status);
@@ -86,6 +75,10 @@ export function isOpenStatus(status: TicketStatus): boolean {
 
 export const RoleSchema = z.enum(['funcionario', 'analista']);
 export type Role = z.infer<typeof RoleSchema>;
+
+/** Quem chama o serviço de chamados. 'sistema' é o próprio app (ex.: login) e só acessa o diretório. */
+export const ActorRoleSchema = z.enum(['funcionario', 'analista', 'sistema']);
+export type ActorRole = z.infer<typeof ActorRoleSchema>;
 
 export const EmployeeSchema = z.object({
   id: z.string(),
@@ -152,8 +145,8 @@ export type KbSearchHit = z.infer<typeof KbSearchHitSchema>;
 
 export const CreateTicketInputSchema = z.object({
   type: TicketTypeSchema,
-  title: z.string().min(5).max(120),
-  description: z.string().min(10).max(2000),
+  title: z.string().trim().min(5).max(120),
+  description: z.string().trim().min(10).max(2000),
   category: CategorySchema,
   priority: PrioritySchema,
   affected: AffectedSchema,
@@ -161,5 +154,4 @@ export const CreateTicketInputSchema = z.object({
 });
 export type CreateTicketInput = z.infer<typeof CreateTicketInputSchema>;
 
-export const SUPPORT_QUEUES = ['Suporte N1', 'Suporte N2'] as const;
-export type SupportQueue = (typeof SUPPORT_QUEUES)[number];
+export type SupportQueue = 'Suporte N1' | 'Suporte N2';

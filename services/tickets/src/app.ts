@@ -1,15 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
-import {
-  AffectedSchema,
-  CategorySchema,
-  PrioritySchema,
-  RoleSchema,
-  TicketStatusSchema,
-  TicketTypeSchema,
-  type Role,
-} from '@nexo/shared';
+import { ActorRoleSchema, CreateTicketInputSchema, TicketStatusSchema, type ActorRole } from '@nexo/shared';
 import { InvalidTransitionError, TicketNotFoundError, type TicketRepository } from './repository';
 import { KbIndex } from './kb-search';
 
@@ -18,28 +10,19 @@ export interface AppOptions {
   serviceToken: string;
   /** Probabilidade (0–1) de uma requisição falhar com 503, simulando o legado instável. */
   flakyRate?: number;
-  /** Latência extra máxima em ms. */
   maxLatencyMs?: number;
   random?: () => number;
 }
 
 interface Actor {
   id: string;
-  role: Role;
+  role: ActorRole;
   name: string | null;
 }
 
 type Env = { Variables: { actor: Actor } };
 
-const CreateBody = z.object({
-  type: TicketTypeSchema,
-  title: z.string().trim().min(5).max(120),
-  description: z.string().trim().min(10).max(2000),
-  category: CategorySchema,
-  priority: PrioritySchema,
-  affected: AffectedSchema,
-  requesterId: z.string().optional(),
-});
+const CreateBody = CreateTicketInputSchema.extend({ requesterId: z.string().optional() });
 const CommentBody = z.object({ text: z.string().trim().min(1).max(2000) });
 const TransferBody = z.object({ queue: z.string().min(1), summary: z.string().trim().min(1).max(2000) });
 const StatusBody = z.object({ status: TicketStatusSchema, note: z.string().max(2000).nullable().optional() });
@@ -48,7 +31,9 @@ async function parseBody<T>(c: Context, schema: z.ZodType<T>): Promise<T> {
   const json: unknown = await c.req.json().catch(() => null);
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
-    throw new HTTPException(400, { message: `Dados inválidos: ${parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}` });
+    throw new HTTPException(400, {
+      message: `Dados inválidos: ${parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`,
+    });
   }
   return parsed.data;
 }
@@ -66,19 +51,21 @@ export function createApp(opts: AppOptions): Hono<Env> {
 
   app.get('/health', (c) => c.json({ ok: true }));
 
-  // Autenticação serviço-a-serviço + identificação do ator.
   app.use('*', async (c, next) => {
     const auth = c.req.header('authorization');
     if (auth !== `Bearer ${opts.serviceToken}`) throw new HTTPException(401, { message: 'Token de serviço inválido' });
-    const role = RoleSchema.safeParse(c.req.header('x-actor-role'));
+    const role = ActorRoleSchema.safeParse(c.req.header('x-actor-role'));
     const id = c.req.header('x-actor-id');
     if (!role.success || !id) throw new HTTPException(400, { message: 'Ator não informado' });
+    if (role.data === 'sistema' && !c.req.path.startsWith('/directory/')) {
+      throw new HTTPException(403, { message: 'O ator de sistema só acessa o diretório' });
+    }
     const rawName = c.req.header('x-actor-name');
     c.set('actor', { id, role: role.data, name: rawName ? decodeURIComponent(rawName) : null });
     await next();
   });
 
-  // Simulação do legado: latência variável e indisponibilidade ocasional.
+  // Simulação do legado instável.
   app.use('*', async (c, next) => {
     const max = opts.maxLatencyMs ?? 0;
     if (max > 0) await new Promise((r) => setTimeout(r, Math.floor(random() * max)));
@@ -102,11 +89,10 @@ export function createApp(opts: AppOptions): Hono<Env> {
     return ticket;
   };
 
-  /* ------------------------------- diretório ------------------------------- */
-
   app.get('/directory/employees', (c) => {
     const email = c.req.query('email');
     if (email) {
+      if (c.get('actor').role === 'funcionario') throw new HTTPException(403, { message: 'Busca por e-mail não permitida' });
       const emp = repo.findEmployeeByEmail(email);
       if (!emp) throw new HTTPException(404, { message: 'Funcionário não encontrado' });
       return c.json(emp);
@@ -118,13 +104,11 @@ export function createApp(opts: AppOptions): Hono<Env> {
   app.get('/directory/employees/:id', (c) => {
     const actor = c.get('actor');
     const id = c.req.param('id');
-    if (actor.role === 'funcionario' && actor.id !== id) throw new HTTPException(404, { message: 'Funcionário não encontrado' });
+    if (actor.role !== 'analista' && actor.id !== id) throw new HTTPException(404, { message: 'Funcionário não encontrado' });
     const emp = repo.getEmployee(id);
     if (!emp) throw new HTTPException(404, { message: 'Funcionário não encontrado' });
     return c.json(emp);
   });
-
-  /* -------------------------------- chamados ------------------------------- */
 
   app.get('/tickets', (c) => {
     const actor = c.get('actor');
@@ -171,7 +155,11 @@ export function createApp(opts: AppOptions): Hono<Env> {
     const actor = c.get('actor');
     const ticket = loadVisibleTicket(c, c.req.param('id'));
     const body = await parseBody(c, CommentBody);
-    const updated = repo.reopen(ticket.id, { author: actor.role === 'analista' ? 'analista' : 'funcionario', authorName: actor.name, text: body.text }, c.req.header('idempotency-key') ?? null);
+    const updated = repo.reopen(
+      ticket.id,
+      { author: actor.role === 'analista' ? 'analista' : 'funcionario', authorName: actor.name, text: body.text },
+      c.req.header('idempotency-key') ?? null,
+    );
     return c.json(updated);
   });
 
@@ -185,10 +173,10 @@ export function createApp(opts: AppOptions): Hono<Env> {
     requireAnalyst(c);
     const ticket = loadVisibleTicket(c, c.req.param('id'));
     const body = await parseBody(c, StatusBody);
-    return c.json(repo.updateStatus(ticket.id, { status: body.status, analystName: c.get('actor').name ?? 'Analista', note: body.note ?? null }));
+    return c.json(
+      repo.updateStatus(ticket.id, { status: body.status, analystName: c.get('actor').name ?? 'Analista', note: body.note ?? null }),
+    );
   });
-
-  /* ---------------------------- central de ajuda --------------------------- */
 
   app.get('/kb/search', (c) => {
     const q = c.req.query('q') ?? '';
@@ -203,8 +191,6 @@ export function createApp(opts: AppOptions): Hono<Env> {
     kb = new KbIndex(repo.listArticles());
     return c.json({ ok: true });
   });
-
-  /* --------------------------------- erros --------------------------------- */
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
