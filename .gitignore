@@ -8,4 +8,4 @@ coverage/
 .DS_Store
 next-env.d.ts
 *.tsbuildinfo
-evals/results/
+**/evals/results/
