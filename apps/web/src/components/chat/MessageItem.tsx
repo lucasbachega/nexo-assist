@@ -58,6 +58,13 @@ export function AnalystBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+/** A opção escolhida é a que inicia a próxima mensagem do funcionário (ex.: "Só eu. Tenho reunião…"). */
+function pickChosen(options: string[], next: string | null): string | null {
+  if (!next) return null;
+  const n = next.toLowerCase();
+  return options.find((o) => n.startsWith(o.toLowerCase())) ?? null;
+}
+
 const stepsFromTrace = (trace: TurnTrace | null): LiveStep[] =>
   (trace?.steps ?? []).filter((s) => !s.silent).map((s) => ({ id: s.id, label: s.label, status: s.status }));
 
@@ -107,7 +114,7 @@ export function AssistantTurn({
             </span>
           )}
           {quick && !streaming && (
-            <QuickReplies question={quick.question} options={quick.options} chosen={ctx.nextUserText} disabled={answered || ctx.busy} onPick={ctx.onSend} />
+            <QuickReplies question={quick.question} options={quick.options} chosen={pickChosen(quick.options, ctx.nextUserText)} disabled={answered || ctx.busy} onPick={ctx.onSend} />
           )}
           {failed && !answered && ctx.lastUserText && (
             <button

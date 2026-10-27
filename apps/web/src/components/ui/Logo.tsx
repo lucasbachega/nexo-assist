@@ -4,8 +4,9 @@ import { cn } from '@/lib/cn';
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden className={cn('h-6 w-6', className)}>
-      <path d="M3 21V4.2a1 1 0 0 1 1.7-.7L12 11V3h3v16.8a1 1 0 0 1-1.7.7L6 13v8H3Z" fill="#1677ff" />
-      <path d="M17 3h4v18h-4z" fill="#0a66c9" />
+      <path d="M16.4 3H21v18h-4.6z" fill="#0a66c9" />
+      <path d="M3 3h4.6L21 21h-4.6z" fill="#1677ff" />
+      <path d="M3 3h4.6v18H3z" fill="#1677ff" />
     </svg>
   );
 }

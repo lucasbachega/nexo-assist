@@ -61,7 +61,7 @@ export function ConversationList({
           <span className="sr-only">Pesquisar</span>
           <input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="Pesquisar conversa ou chamado" className="flex-1 bg-transparent outline-none placeholder:text-muted" />
         </label>
-        <div className="mt-3 flex flex-wrap gap-1.5 pb-3" role="tablist">
+        <div className="scroll-thin mt-3 flex gap-1 overflow-x-auto pb-3" role="tablist">
           {FILTERS.map((f) => {
             const active = filter === f.id;
             const count = data?.counts[f.id];
@@ -71,10 +71,10 @@ export function ConversationList({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onFilter(f.id)}
-                className={cn('rounded-lg px-2.5 py-1 text-[13px] transition-colors', active ? 'bg-brand-soft font-medium text-brand' : 'bg-subtle text-ink-soft hover:bg-line-soft')}
+                className={cn('rounded-lg px-2 py-1 text-[13px] whitespace-nowrap transition-colors', active ? 'bg-brand-soft font-medium text-brand' : 'bg-subtle text-ink-soft hover:bg-line-soft')}
               >
                 {f.label}
-                {f.id !== 'todas' && count !== undefined && <span className={cn('ml-1.5', active ? 'text-brand' : 'text-muted')}>{count}</span>}
+                {f.id !== 'todas' && count !== undefined && <span className={cn('ml-1', active ? 'text-brand' : 'text-muted')}>{count}</span>}
               </button>
             );
           })}

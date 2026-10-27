@@ -242,15 +242,18 @@ export class AppStore {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(id, m.conversationId, m.role, m.authorId ?? null, m.authorName ?? null, m.text, JSON.stringify(blocks), m.trace ? JSON.stringify(m.trace) : null, m.sessionId ?? null, createdAt);
-      const preview = m.text.replace(/\s+/g, ' ').slice(0, 140);
+      // Eventos de sistema não viram prévia na lista do console.
+      const preview = m.role === 'system' ? null : m.text.replace(/\s+/g, ' ').slice(0, 140);
       const unreadBump = m.role === 'user' ? 1 : 0;
       this.db
         .prepare(
-          `UPDATE conversations SET last_message_preview = ?, last_message_role = ?, last_message_at = ?, updated_at = ?,
+          `UPDATE conversations SET last_message_preview = COALESCE(?, last_message_preview),
+             last_message_role = CASE WHEN ? IS NULL THEN last_message_role ELSE ? END,
+             last_message_at = ?, updated_at = ?,
              unread_for_analyst = CASE WHEN status != 'agent' THEN unread_for_analyst + ? ELSE unread_for_analyst END
            WHERE id = ?`,
         )
-        .run(preview, m.role, createdAt, createdAt, unreadBump, m.conversationId);
+        .run(preview, preview, m.role, createdAt, createdAt, unreadBump, m.conversationId);
       return {
         id,
         seq: Number(info.lastInsertRowid),

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 /** Sobe a árvore até achar o package.json com "workspaces" (raiz do monorepo). */
 export function findRepoRoot(start: string = process.cwd()): string {
-  let dir = path.resolve(start);
+  let dir = path.resolve(/* turbopackIgnore: true */ start);
   for (;;) {
     const pkg = path.join(dir, 'package.json');
     if (existsSync(pkg)) {
@@ -15,7 +15,7 @@ export function findRepoRoot(start: string = process.cwd()): string {
       }
     }
     const parent = path.dirname(dir);
-    if (parent === dir) return path.resolve(start);
+    if (parent === dir) return path.resolve(/* turbopackIgnore: true */ start);
     dir = parent;
   }
 }
@@ -24,7 +24,7 @@ export function findRepoRoot(start: string = process.cwd()): string {
 export function resolveDataDir(): string {
   const configured = process.env.DATA_DIR;
   const root = findRepoRoot();
-  const dir = configured ? path.resolve(root, configured) : path.join(root, 'data');
+  const dir = configured ? path.resolve(/* turbopackIgnore: true */ root, configured) : path.join(/* turbopackIgnore: true */ root, 'data');
   mkdirSync(dir, { recursive: true });
   return dir;
 }

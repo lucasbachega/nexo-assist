@@ -84,8 +84,11 @@ export function ChatApp({ firstName }: { firstName: string }) {
   const status = state?.conversation?.status;
   useEffect(() => {
     if (!status || pending) return;
-    const ms = status === 'agent' ? 15_000 : 3_000;
-    const id = window.setInterval(() => void poll(), ms);
+    // Com o agent, só para perceber se um analista assumiu; com analista, quase em tempo real.
+    const ms = status === 'agent' ? 5_000 : 2_500;
+    const id = window.setInterval(() => {
+      if (!document.hidden) void poll();
+    }, ms);
     return () => window.clearInterval(id);
   }, [status, pending, poll]);
 
