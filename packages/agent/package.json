@@ -1,0 +1,17 @@
+{
+  "name": "@nexo/agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "eval": "tsx --env-file-if-exists=../../.env evals/run.ts"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.79.0",
+    "@nexo/shared": "*",
+    "@nexo/tickets": "*",
+    "zod": "^4.1.0"
+  }
+}
