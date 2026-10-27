@@ -58,8 +58,10 @@ export function TicketsPanel({
     <aside className="flex h-full w-full flex-col border-l border-line bg-white" aria-label={`Chamados de ${first}`}>
       <header className="flex items-start justify-between px-5 pt-4 pb-3">
         <div>
-          <h2 className="text-[16px] font-semibold text-ink">Chamados da {first}</h2>
-          <p className="text-[12.5px] text-muted">{data ? `${data.open.length} abertos · ${data.closed.length} encerrados` : 'carregando…'}</p>
+          <h2 className="text-[16px] font-semibold text-ink">Chamados de {first}</h2>
+          <p className="text-[12.5px] text-muted">
+            {data ? `${data.open.length} abertos · ${data.closed.length} encerrados` : 'carregando…'}
+          </p>
         </div>
         <button onClick={onClose} className="rounded-md p-1 text-ink-soft hover:bg-subtle" aria-label="Fechar painel">
           <X className="h-5 w-5" />
@@ -92,7 +94,9 @@ export function TicketsPanel({
                 <div className="mt-3 flex items-center gap-2 border-t border-line pt-3 text-[13px] text-ink-soft">
                   {conversation.status === 'com_analista' ? <Headset className="h-4 w-4" /> : <ArrowRightLeft className="h-4 w-4" />}
                   <span className="flex-1">
-                    {conversation.status === 'com_analista' ? `Assumido por ${conversation.assignedAnalystName}` : 'Transferido para um analista'}
+                    {conversation.status === 'com_analista'
+                      ? `Assumido por ${conversation.assignedAnalystName}`
+                      : 'Transferido para um analista'}
                   </span>
                   {handoff && <span className="text-muted">{formatTime(handoff.at)}</span>}
                 </div>
@@ -111,13 +115,15 @@ export function TicketsPanel({
         </ul>
       </div>
 
-      {others.length > 4 && (
-        <div className="border-t border-line p-4">
-          <button onClick={() => setShowAll((v) => !v)} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-line text-[14px] text-ink hover:bg-subtle">
-            {showAll ? 'Mostrar menos' : `Ver todos os chamados da ${first}`} <ArrowUpRight className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      <div className="border-t border-line p-4">
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          disabled={others.length <= 4}
+          className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-line text-[14px] text-ink enabled:hover:bg-subtle disabled:text-muted"
+        >
+          {showAll ? 'Mostrar menos' : `Ver todos os chamados de ${first}`} <ArrowUpRight className="h-4 w-4" />
+        </button>
+      </div>
     </aside>
   );
 }

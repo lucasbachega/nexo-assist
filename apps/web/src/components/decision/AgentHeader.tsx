@@ -35,7 +35,10 @@ export function AgentHeader({
       {steps.map((s) => (
         <span
           key={s.id}
-          className={cn('inline-flex items-center gap-1', s.status === 'erro' ? 'text-red' : s.status === 'running' ? 'text-faint' : 'text-muted')}
+          className={cn(
+            'inline-flex items-center gap-1',
+            s.status === 'erro' ? 'text-red' : s.status === 'running' ? 'text-faint' : 'text-muted',
+          )}
         >
           {s.status === 'running' ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

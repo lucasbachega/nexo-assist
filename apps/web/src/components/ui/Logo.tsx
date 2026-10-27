@@ -1,6 +1,5 @@
 import { cn } from '@/lib/cn';
 
-/** Marca do Nexo Assist: um "N" geométrico. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden className={cn('h-6 w-6', className)}>
@@ -13,7 +12,9 @@ export function LogoMark({ className }: { className?: string }) {
 
 export function Logo({ className, tone = 'dark' }: { className?: string; tone?: 'dark' | 'light' }) {
   return (
-    <span className={cn('inline-flex items-center gap-2 font-semibold tracking-tight', tone === 'light' ? 'text-white' : 'text-ink', className)}>
+    <span
+      className={cn('inline-flex items-center gap-2 font-semibold tracking-tight', tone === 'light' ? 'text-white' : 'text-ink', className)}
+    >
       <LogoMark />
       <span className="text-[17px]">Nexo Assist</span>
     </span>

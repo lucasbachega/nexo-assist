@@ -79,9 +79,7 @@ export function DecisionPanel({ trace, className }: { trace: TurnTrace; classNam
       <header className="mb-2 flex flex-wrap items-center gap-2">
         <h4 className="text-[13px] font-semibold text-ink">Como o Nexo decidiu</h4>
         {d && (
-          <span className="rounded-full border border-line bg-white px-2 py-0.5 text-[12px] text-ink-soft">
-            {INTENT_LABEL[d.intent]}
-          </span>
+          <span className="rounded-full border border-line bg-white px-2 py-0.5 text-[12px] text-ink-soft">{INTENT_LABEL[d.intent]}</span>
         )}
         {d && <ConfidencePill value={d.confidence} />}
       </header>
@@ -101,7 +99,9 @@ export function DecisionPanel({ trace, className }: { trace: TurnTrace; classNam
         </dl>
       )}
       {trace.decisionInferred && (
-        <p className="mt-1 text-[12px] text-amber-ink">O modelo não registrou a decisão; este resumo foi inferido pelo sistema a partir das ações.</p>
+        <p className="mt-1 text-[12px] text-amber-ink">
+          O modelo não registrou a decisão; este resumo foi inferido pelo sistema a partir das ações.
+        </p>
       )}
 
       {trace.steps.length > 0 && (
@@ -136,7 +136,8 @@ export function DecisionPanel({ trace, className }: { trace: TurnTrace; classNam
         </span>
         {trace.usage && (
           <span>
-            {trace.usage.inputTokens.toLocaleString('pt-BR')} tokens de entrada · {trace.usage.outputTokens.toLocaleString('pt-BR')} de saída
+            {trace.usage.inputTokens.toLocaleString('pt-BR')} tokens de entrada · {trace.usage.outputTokens.toLocaleString('pt-BR')} de
+            saída
           </span>
         )}
         {trace.latencyMs > 0 && <span>{(trace.latencyMs / 1000).toFixed(1)} s</span>}

@@ -5,7 +5,6 @@ import { cn } from '@/lib/cn';
 import { STATUS_TONE } from '@/lib/labels';
 import { StatusLabel } from '@/components/ui/StatusDot';
 
-/** Seleção entre os chamados abertos (Tela 3). */
 export function TicketListBlock({
   tickets,
   selectedId,
@@ -18,7 +17,11 @@ export function TicketListBlock({
   onSelect: (t: TicketView) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="Seus chamados abertos" className="overflow-hidden rounded-xl border border-line bg-white shadow-card">
+    <div
+      role="radiogroup"
+      aria-label="Seus chamados abertos"
+      className="overflow-hidden rounded-xl border border-line bg-white shadow-card"
+    >
       {tickets.map((t, i) => {
         const selected = selectedId === t.id;
         return (
@@ -47,7 +50,7 @@ export function TicketListBlock({
             <span className="w-[86px] shrink-0 text-[13px] text-muted tabular-nums">{t.id}</span>
             <span className="min-w-0 flex-1 truncate text-[14.5px] text-ink">{t.title}</span>
             <span className="hidden shrink-0 sm:inline">
-              <StatusLabel tone={t.sla.overdue ? 'red' : STATUS_TONE[t.status]}>{t.sla.overdue ? `${STATUS_LABEL[t.status]} · vencido` : STATUS_LABEL[t.status]}</StatusLabel>
+              <StatusLabel tone={STATUS_TONE[t.status]}>{STATUS_LABEL[t.status]}</StatusLabel>
             </span>
             <span className="w-12 shrink-0 text-right text-[13px] text-muted">{formatDayMonth(t.createdAt)}</span>
           </button>

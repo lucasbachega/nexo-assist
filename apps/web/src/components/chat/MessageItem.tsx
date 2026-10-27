@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowRightLeft, RotateCcw } from 'lucide-react';
+import { ArrowRightLeft, Bot, CircleCheck, Headset, RotateCcw } from 'lucide-react';
 import { formatTime, type ChatMessage, type Decision, type TurnTrace, type UiBlock } from '@nexo/shared';
 import { cn } from '@/lib/cn';
 import { AgentHeader, type LiveStep } from '@/components/decision/AgentHeader';
 import { DecisionPanel } from '@/components/decision/DecisionPanel';
 import { DraftCard } from '@/components/blocks/DraftCard';
 import { HandoffCard } from '@/components/blocks/HandoffCard';
-import { KbSource } from '@/components/blocks/KbSource';
 import { QuickReplies } from '@/components/blocks/QuickReplies';
 import { TicketCard } from '@/components/blocks/TicketCard';
 import { TicketListBlock } from '@/components/blocks/TicketListBlock';
@@ -32,11 +31,19 @@ export function UserBubble({ text }: { text: string }) {
   );
 }
 
+function SystemIcon({ text }: { text: string }) {
+  const cls = 'h-3.5 w-3.5';
+  if (/assumiu/i.test(text)) return <Headset className={cls} />;
+  if (/devolveu/i.test(text)) return <Bot className={cls} />;
+  if (/encerrad/i.test(text)) return <CircleCheck className={cls} />;
+  return <ArrowRightLeft className={cls} />;
+}
+
 export function SystemDivider({ text, at }: { text: string; at?: string }) {
   return (
     <div className="flex items-center gap-3 py-1 text-[12.5px] text-muted" role="status">
       <span className="h-px flex-1 bg-line" />
-      <ArrowRightLeft className="h-3.5 w-3.5" />
+      <SystemIcon text={text} />
       <span>
         {text}
         {at ? ` · ${formatTime(at)}` : ''}
@@ -53,7 +60,9 @@ export function AnalystBubble({ message }: { message: ChatMessage }) {
         <span className="font-semibold text-ink">{message.authorName}</span>
         <span className="rounded bg-green-soft px-1.5 py-0.5 text-[11.5px] font-medium text-green-ink">Analista</span>
       </div>
-      <p className="rounded-2xl border border-[#cfe9d8] bg-analyst-bubble px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap text-ink">{message.text}</p>
+      <p className="rounded-2xl border border-[#cfe9d8] bg-analyst-bubble px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap text-ink">
+        {message.text}
+      </p>
     </div>
   );
 }
@@ -89,21 +98,60 @@ export function AssistantTurn({
   const [open, setOpen] = useState(false);
   const steps = liveSteps ?? stepsFromTrace(trace);
   const quick = blocks.find((b): b is Extract<UiBlock, { type: 'quick_replies' }> => b.type === 'quick_replies');
-  const kb = blocks.filter((b): b is Extract<UiBlock, { type: 'kb_article' }> => b.type === 'kb_article');
-  const cards = blocks.filter((b) => b.type !== 'quick_replies' && b.type !== 'kb_article');
+  // Como no protótipo: o cartão do chamado consultado vem antes do texto; listas e rascunhos, depois.
+  // O artigo da central usado aparece no detalhe da decisão, não como cartão.
+  const before = blocks.filter((b) => b.type === 'ticket_card');
+  const after = blocks.filter((b) => b.type !== 'quick_replies' && b.type !== 'kb_article' && b.type !== 'ticket_card');
   const answered = ctx.nextUserText !== null;
   const failed = trace?.failed;
+
+  const renderCard = (b: UiBlock, i: number) => {
+    switch (b.type) {
+      case 'ticket_list': {
+        const chosen = ctx.nextUserText ? (b.tickets.find((t) => ctx.nextUserText!.startsWith(t.id))?.id ?? null) : null;
+        return (
+          <TicketListBlock
+            key={i}
+            tickets={b.tickets}
+            selectedId={chosen}
+            disabled={answered || ctx.busy || !b.selectable}
+            onSelect={(t) => ctx.onSend(`${t.id} · ${t.title}`)}
+          />
+        );
+      }
+      case 'ticket_card':
+        return <TicketCard key={b.ticket.id} ticket={b.ticket} />;
+      case 'draft':
+        return (
+          <DraftCard
+            key={`${b.draft.id}:${b.draft.status}`}
+            draft={b.draft}
+            isLatestPending={ctx.latestPendingDraftId === b.draft.id}
+            onMessages={ctx.onMessages}
+          />
+        );
+      case 'handoff':
+        return <HandoffCard key={i} queue={b.queue} eta={b.eta} summary={b.summary} />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="animate-fade-up">
       <AgentHeader steps={steps} expanded={open} onToggle={() => setOpen((v) => !v)} canExpand={!!trace && !streaming} />
       {open && trace && <DecisionPanel trace={trace} className="mb-3" />}
-      {streaming && decision && !open && (
-        <p className="mb-1.5 text-[12px] text-faint">Entendi: {decision.understood}</p>
-      )}
+      {streaming && decision && !open && <p className="mb-1.5 text-[12px] text-faint">Entendi: {decision.understood}</p>}
+
+      {before.length > 0 && <div className="mb-2.5 space-y-2.5">{before.map(renderCard)}</div>}
 
       {(text || streaming) && (
-        <div className={cn('max-w-[600px] rounded-xl border bg-white px-4 py-3 shadow-[0_1px_2px_rgb(16_24_40/0.04)]', failed ? 'border-red/30' : 'border-line')}>
+        <div
+          className={cn(
+            'max-w-[520px] rounded-xl border bg-white px-4 py-3 shadow-[0_1px_2px_rgb(16_24_40/0.04)]',
+            failed ? 'border-red/30' : 'border-line',
+          )}
+        >
           {text ? (
             <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-ink">{text}</p>
           ) : (
@@ -114,7 +162,13 @@ export function AssistantTurn({
             </span>
           )}
           {quick && !streaming && (
-            <QuickReplies question={quick.question} options={quick.options} chosen={pickChosen(quick.options, ctx.nextUserText)} disabled={answered || ctx.busy} onPick={ctx.onSend} />
+            <QuickReplies
+              question={quick.question}
+              options={quick.options}
+              chosen={pickChosen(quick.options, ctx.nextUserText)}
+              disabled={answered || ctx.busy}
+              onPick={ctx.onSend}
+            />
           )}
           {failed && !answered && ctx.lastUserText && (
             <button
@@ -129,42 +183,7 @@ export function AssistantTurn({
         </div>
       )}
 
-      {kb.length > 0 && (
-        <div className="mt-2 flex flex-col items-start gap-1.5">
-          {kb.map((k) => (
-            <KbSource key={k.id} id={k.id} title={k.title} applicable={k.applicable} note={k.note} />
-          ))}
-        </div>
-      )}
-
-      {cards.length > 0 && (
-        <div className="mt-2.5 space-y-2.5">
-          {cards.map((b, i) => {
-            switch (b.type) {
-              case 'ticket_list': {
-                const chosen = ctx.nextUserText ? (b.tickets.find((t) => ctx.nextUserText!.startsWith(t.id))?.id ?? null) : null;
-                return (
-                  <TicketListBlock
-                    key={i}
-                    tickets={b.tickets}
-                    selectedId={chosen}
-                    disabled={answered || ctx.busy || !b.selectable}
-                    onSelect={(t) => ctx.onSend(`${t.id} · ${t.title}`)}
-                  />
-                );
-              }
-              case 'ticket_card':
-                return <TicketCard key={i} ticket={b.ticket} />;
-              case 'draft':
-                return <DraftCard key={b.draft.id} draft={b.draft} isLatestPending={ctx.latestPendingDraftId === b.draft.id} onMessages={ctx.onMessages} />;
-              case 'handoff':
-                return <HandoffCard key={i} queue={b.queue} eta={b.eta} summary={b.summary} />;
-              default:
-                return null;
-            }
-          })}
-        </div>
-      )}
+      {after.length > 0 && <div className="mt-2.5 space-y-2.5">{after.map(renderCard)}</div>}
     </div>
   );
 }

@@ -1,5 +1,10 @@
 import type { TurnEvent } from '@nexo/shared';
 
+/** Sessão expirada: recarrega a página de login do zero (limpa o estado do cliente). */
+function redirectToLogin() {
+  window.location.replace('/login?expirada=1');
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -23,9 +28,7 @@ export async function api<T>(url: string, init: RequestInit & { json?: unknown }
   } catch {
     throw new ApiError(0, 'Sem conexão. Verifique sua internet e tente de novo.');
   }
-  if (res.status === 401 && typeof window !== 'undefined' && !url.includes('/auth/')) {
-    window.location.href = '/login?expirada=1';
-  }
+  if (res.status === 401 && !url.includes('/auth/')) redirectToLogin();
   const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
   if (!res.ok) throw new ApiError(res.status, data.error ?? 'Algo deu errado. Tente de novo.', data.code);
   return data as T;
@@ -45,7 +48,7 @@ export async function streamChat(text: string, onEvent: (e: TurnEvent) => void, 
     throw new ApiError(0, 'Sem conexão. Verifique sua internet e tente de novo.');
   }
   if (res.status === 401) {
-    window.location.href = '/login?expirada=1';
+    redirectToLogin();
     return;
   }
   if (!res.ok || !res.body) {

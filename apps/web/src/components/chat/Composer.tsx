@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, SendHorizontal } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 /** Caixa de mensagem: Enter envia, Shift+Enter quebra linha. */
@@ -88,7 +88,7 @@ export function Composer({
           disabled={disabled || !text.trim()}
           className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white shadow-sm hover:bg-brand-strong disabled:opacity-50"
         >
-          <ArrowUp className="h-4.5 w-4.5" />
+          <SendHorizontal className="h-4.5 w-4.5" />
         </button>
       )}
     </form>

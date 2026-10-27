@@ -40,39 +40,46 @@ export function LoginScreen({ expired }: { expired: boolean }) {
   }
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1.12fr_1fr]">
-      {/* Apresentação */}
-      <section className="relative hidden flex-col bg-navy px-16 pt-10 pb-10 text-white lg:flex">
+    <div className="grid min-h-dvh lg:h-dvh lg:grid-cols-[1.12fr_1fr]">
+      <section className="hidden min-h-0 flex-col bg-navy px-14 pt-10 pb-8 text-white lg:flex">
         <Logo tone="light" />
-        <div className="mt-[14vh] max-w-[620px]">
-          <p className="text-[14px] text-white/55">Service desk de TI da Nexo</p>
-          <h1 className="mt-3 font-serif text-[52px] leading-[1.08] tracking-[-0.01em]">Seu problema de TI, resolvido em uma conversa.</h1>
-          <p className="mt-5 max-w-[500px] text-[16px] leading-relaxed text-white/60">
-            Descreva o que está acontecendo. O assistente consulta seus chamados, busca na central de ajuda e chama um analista quando precisa.
-          </p>
+        <div className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden py-8">
+          <div className="max-w-[620px]">
+            <p className="text-[14px] text-white/55">Service desk de TI da Nexo</p>
+            <h1 className="mt-3 font-serif text-[clamp(34px,3.4vw,50px)] leading-[1.1] tracking-[-0.01em]">
+              Seu problema de TI, resolvido em uma conversa.
+            </h1>
+            <p className="mt-5 max-w-[500px] text-[16px] leading-relaxed text-white/60">
+              Descreva o que está acontecendo. O assistente consulta seus chamados, busca na central de ajuda e chama um analista quando
+              precisa.
+            </p>
+          </div>
+
+          <div
+            className="mx-auto mt-10 w-full max-w-[420px] [@media(max-height:700px)]:hidden rounded-2xl border border-white/10 bg-navy-2 p-4"
+            aria-hidden
+          >
+            <p className="ml-auto w-fit rounded-xl bg-white px-3.5 py-2 text-[14px] text-ink">Meu notebook não conecta na VPN. Erro 809.</p>
+            <p className="mt-3 text-[12.5px] text-white/50">
+              <span className="font-semibold text-white/85">Nexo Assist</span> consultou seus chamados · criou um chamado
+            </p>
+            <p className="mt-1.5 max-w-[360px] rounded-xl bg-white/10 px-3.5 py-2 text-[14px] leading-relaxed text-white/90">
+              Pronto: abri o chamado com prioridade alta. Um analista fala com você em até 4 h úteis.
+            </p>
+            <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1 text-[12.5px] text-ink">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber" /> <span className="font-semibold">INC-20517</span>
+              <span className="text-muted">Rede e VPN · Alta · em até 4 h</span>
+            </p>
+          </div>
         </div>
 
-        <div className="mt-10 max-w-[480px] rounded-2xl border border-white/10 bg-navy-2 p-4" aria-hidden>
-          <p className="ml-auto w-fit rounded-xl bg-white px-3.5 py-2 text-[14px] text-ink">Meu notebook não conecta na VPN. Erro 809.</p>
-          <p className="mt-3 text-[12.5px] text-white/50">
-            <span className="font-semibold text-white/85">Nexo Assist</span> consultou seus chamados · criou um chamado
-          </p>
-          <p className="mt-1.5 max-w-[360px] rounded-xl bg-white/10 px-3.5 py-2 text-[14px] leading-relaxed text-white/90">
-            Pronto: abri o chamado com prioridade alta. Um analista fala com você em até 4 h úteis.
-          </p>
-          <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1 text-[12.5px] text-ink">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber" /> <span className="font-semibold">INC-20517</span>
-            <span className="text-muted">Rede e VPN · Alta · em até 4 h</span>
-          </p>
-        </div>
-
-        <dl className="mt-auto grid grid-cols-3 border-t border-white/10 pt-6">
+        <dl className="grid grid-cols-3 border-t border-white/10 pt-6">
           {[
             ['8 s', 'primeira resposta, em média'],
             ['72%', 'resolvidos sem fila'],
             ['6', 'analistas online agora'],
           ].map(([v, l], i) => (
-            <div key={l} className={cn('px-6 first:pl-0', i > 0 && 'border-l border-white/10')}>
+            <div key={l} className={cn('px-4 first:pl-0', i > 0 && 'border-l border-white/10')}>
               <dt className="font-serif text-[30px]">
                 {v}
                 {i === 2 && <span className="ml-2 inline-block h-2 w-2 -translate-y-1 rounded-full bg-green" />}
@@ -83,14 +90,16 @@ export function LoginScreen({ expired }: { expired: boolean }) {
         </dl>
       </section>
 
-      {/* Formulário */}
-      <section className="flex flex-col px-6 py-8 sm:px-14">
+      <section className="flex min-h-0 flex-col overflow-y-auto px-6 py-8 sm:px-14">
         <div className="flex items-center justify-between text-[13.5px] lg:justify-end">
           <span className="lg:hidden">
             <Logo />
           </span>
           <span className="text-muted">
-            Problema para entrar? <a href="tel:4000" className="font-medium text-brand hover:underline">Ligue no ramal 4000</a>
+            Problema para entrar?{' '}
+            <a href="tel:4000" className="font-medium text-brand hover:underline">
+              Ligue no ramal 4000
+            </a>
           </span>
         </div>
 
@@ -137,7 +146,12 @@ export function LoginScreen({ expired }: { expired: boolean }) {
                   onChange={(e) => setPassword(e.target.value)}
                   className="flex-1 bg-transparent text-[15px] tracking-wide text-ink outline-none"
                 />
-                <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? 'Ocultar senha' : 'Mostrar senha'} className="text-muted hover:text-ink">
+                <button
+                  type="button"
+                  onClick={() => setShow((v) => !v)}
+                  aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}
+                  className="text-muted hover:text-ink"
+                >
                   {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
@@ -166,24 +180,24 @@ export function LoginScreen({ expired }: { expired: boolean }) {
             </button>
           </form>
 
-          <div className="mt-8 border-t border-line pt-5">
-            <p className="text-[12.5px] font-medium tracking-wide text-muted uppercase">Contas de demonstração · qualquer senha</p>
-            <div className="mt-2.5 space-y-1.5">
-              {DEMO.map((d) => (
+          <div className="mt-8 border-t border-line pt-4 text-[13px] text-muted">
+            Demonstração (qualquer senha):{' '}
+            {DEMO.map((d, i) => (
+              <span key={d.email}>
+                {i > 0 && ' · '}
                 <button
-                  key={d.email}
                   type="button"
+                  title={d.hint}
                   onClick={() => {
                     setEmail(d.email);
                     setPassword('demo');
                   }}
-                  className="flex w-full items-center justify-between rounded-lg border border-line-soft px-3 py-2 text-left text-[13.5px] hover:border-line hover:bg-subtle"
+                  className="font-medium text-brand hover:underline"
                 >
-                  <span className="font-medium text-ink">{d.label}</span>
-                  <span className="text-muted">{d.hint}</span>
+                  {d.label}
                 </button>
-              ))}
-            </div>
+              </span>
+            ))}
           </div>
         </div>
 

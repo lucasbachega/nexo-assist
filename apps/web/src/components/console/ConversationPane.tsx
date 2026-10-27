@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Bot, CheckCheck, CircleX, Hand, Headset, Info, ListChecks, MoreVertical, Search, Sparkles } from 'lucide-react';
+import { ArrowLeft, Bot, CheckCheck, CircleCheck, Hand, Headset, Info, ListChecks, MoreVertical, Search, Sparkles } from 'lucide-react';
 import { PRIORITY_LABEL, formatDayLabel, formatTime, type ChatMessage, type HandoffInfo, type UiBlock } from '@nexo/shared';
-import { cn } from '@/lib/cn';
+import { startsNewDay } from '@/lib/messages';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { ConfidencePill, DecisionPanel } from '@/components/decision/DecisionPanel';
@@ -45,7 +45,11 @@ function AgentMessage({ m }: { m: ChatMessage }) {
         <span className="font-semibold text-ink">{m.authorName ?? 'Nexo Assist'}</span>
         <span className="rounded bg-brand-soft px-1.5 text-[11px] font-semibold text-brand">IA</span>
         {m.trace && (
-          <button onClick={() => setOpen((v) => !v)} className="ml-1 inline-flex items-center gap-1 text-[12px] text-brand hover:underline" aria-expanded={open}>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="ml-1 inline-flex items-center gap-1 text-[12px] text-brand hover:underline"
+            aria-expanded={open}
+          >
             <Info className="h-3 w-3" /> {open ? 'ocultar decisão' : 'ver decisão'}
           </button>
         )}
@@ -120,16 +124,15 @@ export function ConversationPane({
 
   const mine = conversation.status === 'com_analista' && conversation.assignedAnalystId === analystId;
   const firstName = conversation.employeeName.split(' ')[0];
-  let lastDay = '';
 
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col bg-console" aria-label={`Conversa com ${conversation.employeeName}`}>
-      <header className="flex h-[64px] shrink-0 items-center gap-3 border-b border-line bg-white px-4">
+      <header className="flex h-[64px] shrink-0 items-center gap-2.5 border-b border-line bg-white px-4">
         <button className="rounded-md p-1 lg:hidden" onClick={onBack} aria-label="Voltar para a lista">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <Avatar name={conversation.employeeName} size={38} />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[64px] flex-1">
           <div className="truncate text-[16px] font-semibold text-ink">{conversation.employeeName}</div>
           <div className="truncate text-[12.5px] text-muted">
             {conversation.status === 'encerrada' ? 'offline' : 'online'} · {conversation.employeeDepartment}
@@ -137,12 +140,12 @@ export function ConversationPane({
           </div>
         </div>
         {mine ? (
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button size="sm" onClick={() => onAction('return')} loading={busy === 'return'}>
               <Bot className="h-4 w-4" /> Devolver ao agent
             </Button>
             <Button size="sm" variant="danger" onClick={() => onAction('close')} loading={busy === 'close'}>
-              <CircleX className="h-4 w-4" /> Encerrar atendimento
+              <CircleCheck className="h-4 w-4" /> Encerrar atendimento
             </Button>
           </div>
         ) : conversation.status === 'aguardando_atendente' ? (
@@ -154,10 +157,21 @@ export function ConversationPane({
             <Bot className="h-4 w-4" /> Com o agent
           </span>
         ) : null}
-        <button className="rounded-md p-2 text-ink-soft hover:bg-subtle" aria-label="Chamados do funcionário" onClick={onToggleTickets}>
-          <Search className="h-4.5 w-4.5" />
-        </button>
-        <button className="rounded-md p-2 text-ink-soft hover:bg-subtle" aria-label="Mais opções">
+        {!mine && (
+          <button
+            className="rounded-md p-2 text-ink-soft hover:bg-subtle"
+            aria-label="Pesquisar conversas"
+            onClick={() => document.getElementById('console-search')?.focus()}
+          >
+            <Search className="h-4.5 w-4.5" />
+          </button>
+        )}
+        <button
+          className="rounded-md p-2 text-ink-soft hover:bg-subtle"
+          aria-label="Mostrar ou ocultar os chamados do funcionário"
+          title="Chamados do funcionário"
+          onClick={onToggleTickets}
+        >
           <MoreVertical className="h-4.5 w-4.5" />
         </button>
       </header>
@@ -166,10 +180,10 @@ export function ConversationPane({
         <div className="mx-auto max-w-[760px] space-y-3 px-5 py-6">
           {messages.map((m, idx) => {
             const day = formatDayLabel(m.createdAt);
-            const showDay = day !== lastDay;
-            lastDay = day;
+            const showDay = startsNewDay(messages, idx, formatDayLabel);
             const isTransfer = m.role === 'system' && m.text.startsWith('Transferida');
-            const isLastTransfer = isTransfer && !messages.slice(idx + 1).some((x) => x.role === 'system' && x.text.startsWith('Transferida'));
+            const isLastTransfer =
+              isTransfer && !messages.slice(idx + 1).some((x) => x.role === 'system' && x.text.startsWith('Transferida'));
             return (
               <div key={m.id}>
                 {showDay && (
@@ -209,34 +223,45 @@ export function ConversationPane({
               </div>
             );
           })}
-          {handoff && conversation.status === 'aguardando_atendente' && !messages.some((m) => m.role === 'system' && m.text.startsWith('Transferida')) && (
-            <HandoffSummary handoff={handoff} />
-          )}
+          {handoff &&
+            conversation.status === 'aguardando_atendente' &&
+            !messages.some((m) => m.role === 'system' && m.text.startsWith('Transferida')) && <HandoffSummary handoff={handoff} />}
           <div ref={bottom} />
         </div>
       </div>
 
       <footer className="shrink-0 border-t border-line bg-white px-4 py-3">
-        {error && <p className="mb-2 rounded-lg bg-red-soft px-3 py-2 text-[13px] text-red" role="alert">{error}</p>}
+        {error && (
+          <p className="mb-2 rounded-lg bg-red-soft px-3 py-2 text-[13px] text-red" role="alert">
+            {error}
+          </p>
+        )}
         {mine ? (
-          <Composer variant="console" onSend={onSend} disabled={busy === 'send'} placeholder={`Responder para ${firstName}…`} buttonLabel="Enviar resposta" maxLength={4000} />
+          <Composer
+            variant="console"
+            onSend={onSend}
+            disabled={busy === 'send'}
+            placeholder={`Responder para ${firstName}…`}
+            buttonLabel="Enviar resposta"
+            maxLength={4000}
+          />
         ) : conversation.status === 'encerrada' ? (
           <p className="py-2 text-center text-[13.5px] text-muted">Atendimento encerrado.</p>
         ) : (
           <>
-            <div className="mb-3 flex flex-wrap items-center gap-3">
+            <div className="mb-3 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-soft text-amber">
                 {conversation.status === 'agent' ? <Bot className="h-4.5 w-4.5" /> : <Hand className="h-4.5 w-4.5" />}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-[14.5px] font-semibold text-ink">
+                <div className="truncate text-[14.5px] font-semibold text-ink">
                   {conversation.status === 'aguardando_atendente'
                     ? `${firstName} espera um atendente`
                     : conversation.status === 'agent'
                       ? 'O Nexo Assist está atendendo'
                       : `${conversation.assignedAnalystName} está atendendo`}
                 </div>
-                <div className="text-[12.5px] text-muted">
+                <div className="truncate text-[12.5px] text-muted">
                   {conversation.status === 'aguardando_atendente'
                     ? `Agent pausado${conversation.handoffDueAt ? ` · até ${formatTime(conversation.handoffDueAt)}` : ''}`
                     : conversation.status === 'agent'
@@ -245,12 +270,12 @@ export function ConversationPane({
                 </div>
               </div>
               {conversation.status === 'aguardando_atendente' && (
-                <Button onClick={() => onAction('return')} loading={busy === 'return'}>
+                <Button size="sm" className="shrink-0" onClick={() => onAction('return')} loading={busy === 'return'}>
                   <Bot className="h-4 w-4" /> Devolver ao agent
                 </Button>
               )}
               {conversation.status !== 'com_analista' && (
-                <Button variant="primary" onClick={() => onAction('assume')} loading={busy === 'assume'}>
+                <Button size="sm" className="shrink-0" variant="primary" onClick={() => onAction('assume')} loading={busy === 'assume'}>
                   <Headset className="h-4 w-4" /> Assumir atendimento
                 </Button>
               )}

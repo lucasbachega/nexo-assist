@@ -12,7 +12,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** Cartão de chamado com status e situação do prazo. */
 export function TicketCard({ ticket }: { ticket: TicketView }) {
   const overdue = ticket.sla.overdue;
   return (
@@ -27,7 +26,7 @@ export function TicketCard({ ticket }: { ticket: TicketView }) {
       </header>
       <h3 className="mt-2 text-[18px] leading-snug font-semibold text-ink">{ticket.title}</h3>
       <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{ticket.description}</p>
-      <div className="mt-3 grid grid-cols-2 gap-4 border-t border-line-soft pt-3 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-4 border-t border-line-soft pt-3 sm:grid-cols-[1fr_1fr_1fr_1.35fr]">
         <Field label="Categoria">{ticket.category}</Field>
         <Field label="Prioridade">
           <span className="inline-flex items-center gap-1.5">
@@ -39,7 +38,10 @@ export function TicketCard({ ticket }: { ticket: TicketView }) {
         <Field label="Última atualização">
           <span className={cn(overdue && 'font-medium text-amber-ink')}>{ticket.sla.sinceLastUpdate}</span>
           {ticket.sla.state === 'running' && (
-            <span className={cn('text-[13px]', overdue ? 'text-ink-soft' : 'text-muted')}> · {overdue ? 'prazo vencido' : ticket.sla.summary}</span>
+            <span className={cn('text-[13px]', overdue ? 'text-ink-soft' : 'text-muted')}>
+              {' '}
+              · {overdue ? 'prazo vencido' : ticket.sla.summary}
+            </span>
           )}
         </Field>
       </div>

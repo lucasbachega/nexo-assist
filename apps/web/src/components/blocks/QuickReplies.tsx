@@ -28,7 +28,9 @@ export function QuickReplies({
             onClick={() => onPick(o)}
             className={cn(
               'rounded-lg border px-3 py-1.5 text-[14px] transition-colors',
-              chosen === o ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-white text-ink enabled:hover:border-brand-line enabled:hover:bg-brand-soft/40',
+              chosen === o
+                ? 'border-brand bg-brand-soft text-brand'
+                : 'border-line bg-white text-ink enabled:hover:border-brand-line enabled:hover:bg-brand-soft/40',
               disabled && chosen !== o && 'opacity-60',
             )}
           >

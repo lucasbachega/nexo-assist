@@ -13,6 +13,8 @@ import {
   type UiBlock,
 } from '@nexo/shared';
 import { api, ApiError, streamChat } from '@/lib/api';
+import { useLatest, usePolling } from '@/lib/hooks';
+import { mergeMessages, startsNewDay } from '@/lib/messages';
 import type { LiveStep } from '@/components/decision/AgentHeader';
 import { Composer } from './Composer';
 import { AnalystBubble, AssistantTurn, SystemDivider, UserBubble, type InteractionContext } from './MessageItem';
@@ -25,6 +27,8 @@ interface ChatState {
 
 interface PendingTurn {
   userText: string;
+  /** O servidor já gravou a mensagem do funcionário (ela está em `messages`). */
+  echoed: boolean;
   steps: LiveStep[];
   text: string;
   blocks: UiBlock[];
@@ -38,10 +42,11 @@ const SUGGESTIONS = [
   'Preciso de um segundo monitor',
 ];
 
-function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
-  const bySeq = new Map(current.map((m) => [m.seq, m]));
-  for (const m of incoming) bySeq.set(m.seq, m);
-  return [...bySeq.values()].sort((a, b) => a.seq - b.seq);
+function sameBlock(a: UiBlock, b: UiBlock): boolean {
+  if (a.type !== b.type) return false;
+  if (a.type === 'draft' && b.type === 'draft') return a.draft.id === b.draft.id;
+  if (a.type === 'ticket_card' && b.type === 'ticket_card') return a.ticket.id === b.ticket.id;
+  return true;
 }
 
 export function ChatApp({ firstName }: { firstName: string }) {
@@ -50,20 +55,21 @@ export function ChatApp({ firstName }: { firstName: string }) {
   const [pending, setPending] = useState<PendingTurn | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const stateRef = useLatest(state);
 
   const load = useCallback(async () => {
     try {
+      const next = await api<ChatState>('/api/chat');
+      setState(next);
       setLoadError(null);
-      setState(await api<ChatState>('/api/chat'));
     } catch (e) {
       setLoadError(e instanceof ApiError ? e.message : 'Não foi possível carregar a conversa.');
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    const id = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(id);
   }, [load]);
 
   const poll = useCallback(async () => {
@@ -74,23 +80,17 @@ export function ChatApp({ firstName }: { firstName: string }) {
       const r = await api<{ conversation: ConversationView; messages: ChatMessage[]; usage: SessionUsage }>(
         `/api/chat/messages?conversationId=${encodeURIComponent(s.conversation.id)}&after=${after}`,
       );
-      setState((prev) => (prev ? { conversation: r.conversation, messages: mergeMessages(prev.messages, r.messages), usage: r.usage } : prev));
+      setState((prev) =>
+        prev ? { conversation: r.conversation, messages: mergeMessages(prev.messages, r.messages), usage: r.usage } : prev,
+      );
     } catch {
       /* polling silencioso: tenta de novo no próximo ciclo */
     }
-  }, []);
+  }, [stateRef]);
 
-  // Atualizações em tempo quase real: mais frequentes quando há analista envolvido.
+  // Com o agent, só para perceber se um analista assumiu; com analista, quase em tempo real.
   const status = state?.conversation?.status;
-  useEffect(() => {
-    if (!status || pending) return;
-    // Com o agent, só para perceber se um analista assumiu; com analista, quase em tempo real.
-    const ms = status === 'agent' ? 5_000 : 2_500;
-    const id = window.setInterval(() => {
-      if (!document.hidden) void poll();
-    }, ms);
-    return () => window.clearInterval(id);
-  }, [status, pending, poll]);
+  usePolling(poll, !status || pending ? null : status === 'agent' ? 5_000 : 2_500);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -103,18 +103,24 @@ export function ChatApp({ firstName }: { firstName: string }) {
       const text = raw.trim();
       if (!text || busy) return;
       setSendError(null);
-      setPending({ userText: text, steps: [], text: '', blocks: [], decision: null });
+      setPending({ userText: text, echoed: false, steps: [], text: '', blocks: [], decision: null });
       let userEchoed = false;
 
       const onEvent = (e: TurnEvent) => {
         switch (e.type) {
           case 'user_message':
             userEchoed = true;
-            setState((prev) =>
-              prev
-                ? { ...prev, conversation: prev.conversation?.id === e.message.conversationId ? prev.conversation : null, messages: mergeMessages(prev.conversation?.id === e.message.conversationId ? prev.messages : [], [e.message]) }
-                : prev,
-            );
+            setPending((p) => (p ? { ...p, echoed: true } : p));
+            // Uma conversa encerrada dá lugar a uma nova: o histórico na tela recomeça.
+            setState((prev) => {
+              if (!prev) return prev;
+              const same = prev.conversation?.id === e.message.conversationId;
+              return {
+                ...prev,
+                conversation: same ? prev.conversation : null,
+                messages: mergeMessages(same ? prev.messages : [], [e.message]),
+              };
+            });
             break;
           case 'step_start':
             setPending((p) => (p ? { ...p, steps: [...p.steps, { id: e.id, label: e.label, status: 'running' }] } : p));
@@ -127,13 +133,15 @@ export function ChatApp({ firstName }: { firstName: string }) {
             setPending((p) => (p ? { ...p, text: p.text + e.delta } : p));
             break;
           case 'block':
-            setPending((p) => (p ? { ...p, blocks: [...p.blocks.filter((b) => !(b.type === e.block.type && b.type !== 'draft' && b.type !== 'ticket_card')), e.block] } : p));
+            setPending((p) => (p ? { ...p, blocks: [...p.blocks.filter((b) => !sameBlock(b, e.block)), e.block] } : p));
             break;
           case 'decision':
             setPending((p) => (p ? { ...p, decision: e.decision } : p));
             break;
           case 'done':
-            setState((prev) => (prev ? { conversation: e.conversation, messages: mergeMessages(prev.messages, [e.message]), usage: e.usage } : prev));
+            setState((prev) =>
+              prev ? { conversation: e.conversation, messages: mergeMessages(prev.messages, [e.message]), usage: e.usage } : prev,
+            );
             break;
           case 'queued':
             setState((prev) => (prev ? { ...prev, conversation: e.conversation, usage: e.usage } : prev));
@@ -157,12 +165,15 @@ export function ChatApp({ firstName }: { firstName: string }) {
     [busy, poll, load],
   );
 
-  const appendMessages = useCallback((msgs: ChatMessage[]) => {
-    if (msgs.length) setState((prev) => (prev ? { ...prev, messages: mergeMessages(prev.messages, msgs) } : prev));
-    void poll();
-  }, [poll]);
+  const appendMessages = useCallback(
+    (msgs: ChatMessage[]) => {
+      if (msgs.length) setState((prev) => (prev ? { ...prev, messages: mergeMessages(prev.messages, msgs) } : prev));
+      void poll();
+    },
+    [poll],
+  );
 
-  const messages = state?.messages ?? [];
+  const messages = useMemo(() => state?.messages ?? [], [state?.messages]);
   const latestPendingDraftId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const d = messages[i]?.blocks.find((b) => b.type === 'draft' && (b.draft.status === 'pendente' || b.draft.status === 'falhou'));
@@ -191,22 +202,26 @@ export function ChatApp({ firstName }: { firstName: string }) {
   const limitReached = usage.used >= usage.limit;
   const empty = state !== null && messages.length === 0 && !pending;
 
-  let lastDay = '';
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[800px] space-y-5 px-4 pt-10 pb-6 sm:px-6" aria-live="polite">
+        <div className="mx-auto w-full max-w-[720px] space-y-5 px-4 pt-10 pb-6 sm:px-6" aria-live="polite">
           {state === null && <ChatSkeleton />}
 
           {empty && (
             <div className="pt-[8vh] text-center">
               <h1 className="font-serif text-[34px] leading-tight text-ink">Olá, {firstName}. Como posso ajudar?</h1>
               <p className="mx-auto mt-2 max-w-md text-[15px] text-muted">
-                Descreva o problema com suas palavras. Eu consulto seus chamados, busco na central de ajuda e chamo um analista quando precisar.
+                Descreva o problema com suas palavras. Eu consulto seus chamados, busco na central de ajuda e chamo um analista quando
+                precisar.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 {SUGGESTIONS.map((s) => (
-                  <button key={s} onClick={() => void send(s)} className="rounded-full border border-line bg-white px-3.5 py-1.5 text-[14px] text-ink-soft hover:border-brand-line hover:bg-brand-soft/50">
+                  <button
+                    key={s}
+                    onClick={() => void send(s)}
+                    className="rounded-full border border-line bg-white px-3.5 py-1.5 text-[14px] text-ink-soft hover:border-brand-line hover:bg-brand-soft/50"
+                  >
                     {s}
                   </button>
                 ))}
@@ -215,9 +230,8 @@ export function ChatApp({ firstName }: { firstName: string }) {
           )}
 
           {messages.map((m, idx) => {
+            const showDay = idx > 0 && startsNewDay(messages, idx, formatDayLabel);
             const day = formatDayLabel(m.createdAt);
-            const showDay = day !== lastDay && idx > 0;
-            lastDay = day;
             const next = messages.slice(idx + 1).find((x) => x.role === 'user');
             const ctx: InteractionContext = {
               nextUserText: next?.text ?? (pending && idx === messages.length - 1 ? pending.userText : null),
@@ -240,7 +254,7 @@ export function ChatApp({ firstName }: { firstName: string }) {
 
           {pending && (
             <>
-              {!messages.some((m) => m.role === 'user' && m.text === pending.userText && m.seq === messages.at(-1)?.seq) && <UserBubble text={pending.userText} />}
+              {!pending.echoed && <UserBubble text={pending.userText} />}
               {conversation?.status === 'agent' || !conversation ? (
                 <AssistantTurn
                   text={pending.text}
@@ -249,7 +263,14 @@ export function ChatApp({ firstName }: { firstName: string }) {
                   liveSteps={pending.steps}
                   streaming
                   decision={pending.decision}
-                  ctx={{ nextUserText: null, latestPendingDraftId: null, lastUserText: null, busy: true, onSend: () => undefined, onMessages: () => undefined }}
+                  ctx={{
+                    nextUserText: null,
+                    latestPendingDraftId: null,
+                    lastUserText: null,
+                    busy: true,
+                    onSend: () => undefined,
+                    onMessages: () => undefined,
+                  }}
                 />
               ) : null}
             </>
@@ -264,7 +285,7 @@ export function ChatApp({ firstName }: { firstName: string }) {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[800px] px-4 pb-4 sm:px-6">
+      <div className="mx-auto w-full max-w-[720px] px-4 pb-4 sm:px-6">
         <ConversationBanner conversation={conversation} />
         <Composer
           onSend={(t) => void send(t)}
@@ -289,7 +310,8 @@ function ConversationBanner({ conversation }: { conversation: ConversationView |
         <Headset className="h-4 w-4 shrink-0" />
         <span>
           Você está na fila do <strong className="font-medium">{conversation.handoff?.queue ?? 'suporte'}</strong>
-          {conversation.handoff?.dueAt ? ` — um analista assume até ${formatTime(conversation.handoff.dueAt)}` : ''}. Pode continuar escrevendo: ele vai ler tudo.
+          {conversation.handoff?.dueAt ? ` — um analista assume até ${formatTime(conversation.handoff.dueAt)}` : ''}. Pode continuar
+          escrevendo: ele vai ler tudo.
         </span>
       </div>
     );
@@ -299,7 +321,8 @@ function ConversationBanner({ conversation }: { conversation: ConversationView |
       <div className={`${base} border-[#cfe9d8] bg-green-soft text-green-ink`} role="status">
         <Headset className="h-4 w-4 shrink-0" />
         <span>
-          <strong className="font-medium">{conversation.assignedAnalystName}</strong> está te atendendo. O Nexo Assist fica em pausa enquanto isso.
+          <strong className="font-medium">{conversation.assignedAnalystName}</strong> está te atendendo. O Nexo Assist fica em pausa
+          enquanto isso.
         </span>
       </div>
     );

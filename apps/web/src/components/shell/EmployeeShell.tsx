@@ -27,7 +27,7 @@ export function EmployeeShell({ user, children }: { user: { name: string; email:
   const current = NAV.find((n) => pathname.startsWith(n.href));
 
   const sidebar = (
-    <aside className="flex h-full w-[224px] shrink-0 flex-col border-r border-line bg-white">
+    <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-line bg-white">
       <div className="flex h-[60px] items-center px-5">
         <Logo />
       </div>
@@ -58,7 +58,10 @@ export function EmployeeShell({ user, children }: { user: { name: string; email:
             <div className="truncate text-[12px] text-muted">{user.email}</div>
           </div>
         </div>
-        <button onClick={() => void logout(router)} className="mt-2 flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[14px] text-ink-soft hover:bg-subtle">
+        <button
+          onClick={() => void logout(router)}
+          className="mt-2 flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[14px] text-ink-soft hover:bg-subtle"
+        >
           <LogOut className="h-4 w-4" /> Sair
         </button>
       </div>
